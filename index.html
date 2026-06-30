@@ -647,12 +647,38 @@
   function getLat(geo) {
     if (!geo) return 0;
     if (geo.coordinates) return geo.coordinates[1];
+    if (typeof geo === 'string') return parseWKB(geo)?.lat || 0;
     return 0;
   }
   function getLng(geo) {
     if (!geo) return 0;
     if (geo.coordinates) return geo.coordinates[0];
+    if (typeof geo === 'string') return parseWKB(geo)?.lng || 0;
     return 0;
+  }
+
+  // Décode le format WKB hexadécimal que PostGIS peut renvoyer (ex: "0101000020E6100000...")
+  function parseWKB(hex) {
+    try {
+      if (!hex || hex.length < 50) return null;
+      // Le format EWKB : on saute l'en-tête (endianness + type + SRID = 18 octets = 36 hex chars)
+      const lngHex = hex.substring(18, 34);
+      const latHex = hex.substring(34, 50);
+      const lng = hexToDouble(lngHex);
+      const lat = hexToDouble(latHex);
+      return { lat, lng };
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function hexToDouble(hex) {
+    // Convertit 8 octets hex (little-endian) en nombre flottant double précision
+    const bytes = new Uint8Array(8);
+    for (let i = 0; i < 8; i++) {
+      bytes[i] = parseInt(hex.substr(i * 2, 2), 16);
+    }
+    return new DataView(bytes.buffer).getFloat64(0, true); // true = little-endian
   }
 
   // ============================================
