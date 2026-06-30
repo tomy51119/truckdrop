@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TruckDrop — Créer mon compte</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --orange: #F97316;
+      --orange-light: #FFF7ED;
+      --orange-dark: #EA6C0A;
+      --dark: #111827;
+      --gray-700: #374151;
+      --gray-500: #6B7280;
+      --gray-300: #D1D5DB;
+      --gray-100: #F9FAFB;
+      --white: #FFFFFF;
+      --green: #16A34A;
+      --green-light: #F0FDF4;
+      --red: #DC2626;
+      --red-light: #FEF2F2;
+      --radius: 10px;
+      --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04);
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--gray-100);
+      color: var(--dark);
+      min-height: 100vh;
+      line-height: 1.6;
+    }
+
+    nav {
+      background: var(--white);
+      border-bottom: 1px solid var(--gray-300);
+      padding: 0 1.5rem;
+      height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .logo { display: flex; align-items: center; gap: 8px; font-size: 20px; font-weight: 700; text-decoration: none; color: var(--dark); }
+    .logo-icon { width: 34px; height: 34px; background: var(--orange); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 20px; }
+    .nav-link { font-size: 14px; color: var(--gray-500); text-decoration: none; }
+
+    .page {
+      max-width: 440px;
+      margin: 0 auto;
+      padding: 3rem 1.5rem 4rem;
+    }
+
+    .intro { text-align: center; margin-bottom: 1.75rem; }
+    .intro .emoji { font-size: 40px; margin-bottom: 10px; }
+    .intro h1 { font-size: 24px; font-weight: 800; margin-bottom: 6px; }
+    .intro p { font-size: 14px; color: var(--gray-500); }
+
+    .card {
+      background: var(--white);
+      border-radius: 14px;
+      padding: 2rem;
+      box-shadow: var(--shadow);
+      border: 1px solid var(--gray-300);
+    }
+
+    .field { display: flex; flex-direction: column; gap: 5px; margin-bottom: 1rem; }
+    .field label { font-size: 13px; font-weight: 500; color: var(--gray-700); }
+    .field input {
+      padding: 11px 12px; border: 1.5px solid var(--gray-300); border-radius: var(--radius);
+      font-size: 15px; outline: none; transition: border-color 0.15s; font-family: inherit; width: 100%;
+    }
+    .field input:focus { border-color: var(--orange); box-shadow: 0 0 0 3px rgba(249,115,22,0.12); }
+    .field input.error { border-color: var(--red); }
+    .err-msg { font-size: 12px; color: var(--red); display: none; }
+    .field input.error + .err-msg { display: block; }
+
+    .btn-primary {
+      width: 100%;
+      padding: 13px;
+      background: var(--orange); color: white;
+      border: none; border-radius: var(--radius);
+      font-size: 15px; font-weight: 600; cursor: pointer;
+      font-family: inherit; margin-top: 0.5rem;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+    }
+    .btn-primary:hover { background: var(--orange-dark); }
+    .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    .alert { padding: 11px 14px; border-radius: var(--radius); font-size: 13px; margin-bottom: 1rem; display: none; }
+    .alert.error { background: var(--red-light); color: var(--red); border: 1px solid #FECACA; display: flex; align-items: center; gap: 8px; }
+
+    .divider { display: flex; align-items: center; gap: 10px; margin: 1.5rem 0; color: var(--gray-500); font-size: 12px; }
+    .divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: var(--gray-300); }
+
+    .truck-cta {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 16px;
+      background: var(--gray-100);
+      border-radius: var(--radius);
+      font-size: 13px;
+      color: var(--gray-700);
+    }
+    .truck-cta a { color: var(--orange); font-weight: 600; text-decoration: none; }
+
+    .bottom-link { text-align: center; margin-top: 1.5rem; font-size: 13px; color: var(--gray-500); }
+    .bottom-link a { color: var(--orange); font-weight: 600; text-decoration: none; }
+
+    .success-screen { text-align: center; padding: 1rem 0; display: none; }
+    .success-icon { width: 64px; height: 64px; background: var(--green-light); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 32px; margin: 0 auto 1.1rem; }
+    .success-screen h2 { font-size: 20px; font-weight: 700; margin-bottom: 6px; }
+    .success-screen p { color: var(--gray-500); font-size: 14px; margin-bottom: 1.5rem; }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner { width: 17px; height: 17px; border: 2px solid rgba(255,255,255,0.4); border-top-color: white; border-radius: 50%; animation: spin 0.6s linear infinite; }
+
+    .form-state { display: block; }
+  </style>
+</head>
+<body>
+
+<nav>
+  <a class="logo" href="index.html">
+    <div class="logo-icon">🚚</div>
+    TruckDrop
+  </a>
+  <a class="nav-link" href="index.html">← Retour à la carte</a>
+</nav>
+
+<div class="page">
+  <div class="intro">
+    <div class="emoji">👋</div>
+    <h1>Créez votre compte</h1>
+    <p>Trouvez des food trucks, gagnez des points fidélité, réservez pour vos événements.</p>
+  </div>
+
+  <div class="card">
+    <div class="form-state" id="form-state">
+      <div id="alert-box" class="alert"></div>
+
+      <div class="field">
+        <label for="full_name">Prénom et nom</label>
+        <input type="text" id="full_name" placeholder="Marie Dupont">
+      </div>
+      <div class="field">
+        <label for="email">Adresse email</label>
+        <input type="email" id="email" placeholder="marie@email.fr">
+      </div>
+      <div class="field">
+        <label for="password">Mot de passe</label>
+        <input type="password" id="password" placeholder="8 caractères minimum">
+      </div>
+      <div class="field">
+        <label for="password2">Confirmer le mot de passe</label>
+        <input type="password" id="password2" placeholder="Répétez le mot de passe">
+        <span class="err-msg" id="pw-err">Les mots de passe ne correspondent pas.</span>
+      </div>
+
+      <button class="btn-primary" id="btn-submit" onclick="submitClient()">
+        Créer mon compte 🚀
+      </button>
+
+      <div class="divider">ou</div>
+
+      <div class="truck-cta">
+        <span>Vous avez un food truck ?</span>
+        <a href="inscription.html">S'inscrire ici →</a>
+      </div>
+    </div>
+
+    <!-- SUCCÈS -->
+    <div class="success-screen" id="success-screen">
+      <div class="success-icon">✅</div>
+      <h2>Bienvenue sur TruckDrop !</h2>
+      <p>Vérifiez votre email pour confirmer votre compte, puis explorez les food trucks près de chez vous.</p>
+      <button class="btn-primary" onclick="window.location.href='index.html'">
+        Découvrir les food trucks →
+      </button>
+    </div>
+  </div>
+
+  <div class="bottom-link">
+    Déjà inscrit ? <a href="connexion.html">Se connecter</a>
+  </div>
+</div>
+
+<script>
+  const SUPABASE_URL = 'https://ooshjxostygdljkfhhwb.supabase.co';
+  const SUPABASE_ANON_KEY = 'sb_publishable_K80E3dBUm7s5m9No3zLQZw_fknMCUfv';
+  const { createClient } = supabase;
+  const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  async function submitClient() {
+    const fullName = document.getElementById('full_name').value.trim();
+    const email = document.getElementById('email').value.trim();
+    const password = document.getElementById('password').value;
+    const password2 = document.getElementById('password2').value;
+    const btn = document.getElementById('btn-submit');
+
+    clearAlert();
+    document.getElementById('password2').classList.remove('error');
+    document.getElementById('pw-err').style.display = 'none';
+
+    if (!fullName || !email || !password) {
+      showAlert('Remplissez tous les champs.');
+      return;
+    }
+    if (!email.includes('@')) {
+      showAlert('Adresse email invalide.');
+      return;
+    }
+    if (password.length < 8) {
+      showAlert('Le mot de passe doit faire au moins 8 caractères.');
+      return;
+    }
+    if (password !== password2) {
+      document.getElementById('password2').classList.add('error');
+      document.getElementById('pw-err').style.display = 'block';
+      return;
+    }
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Création en cours…';
+
+    try {
+      const { data, error } = await sb.auth.signUp({
+        email,
+        password,
+        options: { data: { full_name: fullName } }
+      });
+
+      if (error) throw error;
+
+      // Le profil "client" est créé automatiquement par le trigger Supabase (role par défaut = 'client')
+      // On s'assure juste que le nom complet est bien enregistré
+      if (data.user) {
+        await sb.from('profiles').update({ full_name: fullName }).eq('id', data.user.id);
+      }
+
+      document.getElementById('form-state').style.display = 'none';
+      document.getElementById('success-screen').style.display = 'block';
+
+    } catch (err) {
+      console.error(err);
+      let msg = 'Une erreur est survenue. Réessayez.';
+      if (err.message?.includes('already registered')) msg = 'Cet email est déjà utilisé.';
+      if (err.message?.includes('password')) msg = 'Mot de passe trop faible.';
+      showAlert(msg);
+      btn.disabled = false;
+      btn.innerHTML = 'Créer mon compte 🚀';
+    }
+  }
+
+  function showAlert(msg) {
+    const el = document.getElementById('alert-box');
+    el.className = 'alert error';
+    el.innerHTML = '⚠️ ' + msg;
+  }
+  function clearAlert() {
+    document.getElementById('alert-box').className = 'alert';
+  }
+</script>
+</body>
+</html>
