@@ -291,6 +291,33 @@
     .event-banner:hover { background: var(--gray-900); }
     .event-banner span { background: var(--orange); padding: 3px 10px; border-radius: 20px; font-size: 13px; }
 
+    .search-here-btn {
+      display: none;
+      position: absolute;
+      top: 1rem;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 500;
+      background: var(--dark);
+      color: white;
+      border: none;
+      padding: 9px 18px;
+      border-radius: 30px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      align-items: center;
+      gap: 6px;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.25);
+      font-family: inherit;
+      animation: fade-in-down 0.2s ease;
+    }
+    .search-here-btn:hover { background: var(--gray-900); }
+    @keyframes fade-in-down {
+      from { opacity: 0; transform: translate(-50%, -8px); }
+      to { opacity: 1; transform: translate(-50%, 0); }
+    }
+
     /* POPUP DÉTAIL TRUCK */
     .truck-popup {
       position: absolute;
@@ -457,6 +484,11 @@
   <div class="map-panel">
     <div id="map"></div>
 
+    <!-- BOUTON RECHERCHER CETTE ZONE -->
+    <button class="search-here-btn" id="search-here-btn" onclick="searchThisArea()">
+      🔍 Rechercher dans cette zone
+    </button>
+
     <!-- POPUP DÉTAIL -->
     <div class="truck-popup" id="truck-popup">
       <button class="popup-close" onclick="closePopup()">✕</button>
@@ -516,11 +548,40 @@
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '© OpenStreetMap'
     }).addTo(map);
+
+    // Recherche dynamique : quand on déplace la carte, on propose de chercher ici
+    map.on('moveend', onMapMoved);
   }
 
-  function setUserPosition(lat, lng) {
+  let mapMovedByUser = false;
+
+  function onMapMoved() {
+    // Ignorer le tout premier centrage automatique de la carte
+    if (!userLat) return;
+
+    const center = map.getCenter();
+    const distFromSearch = haversine(userLat, userLng, center.lat, center.lng);
+
+    // Si le centre de la carte s'est éloigné de plus de 500m de la dernière recherche, proposer de rechercher ici
+    if (distFromSearch > 0.5) {
+      mapMovedByUser = true;
+      document.getElementById('search-here-btn').style.display = 'flex';
+      document.getElementById('search-here-btn').classList.add('show-btn');
+    } else {
+      document.getElementById('search-here-btn').style.display = 'none';
+    }
+  }
+
+  function searchThisArea() {
+    const center = map.getCenter();
+    document.getElementById('search-here-btn').style.display = 'none';
+    setUserPosition(center.lat, center.lng, true); // true = ne pas recentrer la carte
+  }
+
+  function setUserPosition(lat, lng, skipRecenter) {
     userLat = lat; userLng = lng;
-    initMap(lat, lng);
+    if (!skipRecenter) initMap(lat, lng);
+    else if (!map) initMap(lat, lng);
 
     if (userMarker) userMarker.remove();
     const userIcon = L.divIcon({
