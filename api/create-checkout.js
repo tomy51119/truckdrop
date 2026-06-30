@@ -1,10 +1,9 @@
 // ============================================
-// api/create-checkout.js
-// Fonction Vercel Serverless — crée une session de paiement Stripe
+// api/create-ad-checkout.js
+// Fonction Vercel Serverless — crée une session de paiement Stripe pour les pubs
 // ============================================
 
 export default async function handler(req, res) {
-  // Autoriser les requêtes CORS depuis ton site
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -19,24 +18,23 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { priceId, truckId, email, plan } = req.body;
+    const { priceId, adId, email, adType } = req.body;
 
-    if (!priceId || !truckId || !email) {
+    if (!priceId || !adId || !email) {
       return res.status(400).json({ error: 'Paramètres manquants' });
     }
 
-    // Appel direct à l'API Stripe (sans librairie, pour rester léger)
     const params = new URLSearchParams();
     params.append('mode', 'subscription');
-    params.append('success_url', `${req.headers.origin}/dashboard.html?payment=success&plan=${plan}`);
-    params.append('cancel_url', `${req.headers.origin}/inscription.html?payment=cancelled`);
+    params.append('success_url', `${req.headers.origin}/annonceur.html?payment=success`);
+    params.append('cancel_url', `${req.headers.origin}/annonceur.html?payment=cancelled`);
     params.append('customer_email', email);
     params.append('line_items[0][price]', priceId);
     params.append('line_items[0][quantity]', '1');
-    params.append('metadata[truck_id]', truckId);
-    params.append('metadata[plan]', plan);
-    params.append('subscription_data[metadata][truck_id]', truckId);
-    params.append('subscription_data[metadata][plan]', plan);
+    params.append('metadata[ad_id]', adId);
+    params.append('metadata[ad_type]', adType);
+    params.append('subscription_data[metadata][ad_id]', adId);
+    params.append('subscription_data[metadata][ad_type]', adType);
 
     const stripeRes = await fetch('https://api.stripe.com/v1/checkout/sessions', {
       method: 'POST',
