@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TruckDrop — Annoncez sur TruckDrop</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --orange: #F97316; --orange-light: #FFF7ED; --orange-dark: #EA6C0A; --orange-border: #FDBA74;
+      --purple: #7C3AED; --purple-light: #F5F3FF; --purple-border: #C4B5FD;
+      --dark: #111827; --gray-700: #374151; --gray-500: #6B7280;
+      --gray-300: #D1D5DB; --gray-100: #F9FAFB; --white: #FFFFFF;
+      --green: #16A34A; --green-light: #F0FDF4;
+      --red: #DC2626; --red-light: #FEF2F2;
+      --radius: 10px; --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04);
+    }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--gray-100); color: var(--dark); min-height: 100vh; line-height: 1.6; }
+
+    nav { background: var(--white); border-bottom: 1px solid var(--gray-300); padding: 0 1.5rem; height: 60px; display: flex; align-items: center; justify-content: space-between; }
+    .logo { display: flex; align-items: center; gap: 8px; font-size: 20px; font-weight: 700; text-decoration: none; color: var(--dark); }
+    .logo-icon { width: 34px; height: 34px; background: var(--orange); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 20px; }
+    .nav-link { font-size: 14px; color: var(--gray-500); text-decoration: none; }
+
+    .page { max-width: 680px; margin: 0 auto; padding: 2.5rem 1.5rem 4rem; }
+    .intro { text-align: center; margin-bottom: 2rem; }
+    .intro .emoji { font-size: 40px; margin-bottom: 10px; }
+    .intro h1 { font-size: 28px; font-weight: 800; margin-bottom: 8px; }
+    .intro p { font-size: 15px; color: var(--gray-500); }
+
+    .progress-steps { display: flex; align-items: center; margin-bottom: 2rem; }
+    .step-dot { width: 30px; height: 30px; border-radius: 50%; border: 2px solid var(--gray-300); background: var(--white); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; color: var(--gray-500); flex-shrink: 0; transition: all 0.2s; position: relative; z-index: 1; }
+    .step-dot.active { border-color: var(--purple); background: var(--purple); color: white; }
+    .step-dot.done { border-color: var(--green); background: var(--green); color: white; }
+    .step-line { flex: 1; height: 2px; background: var(--gray-300); }
+    .step-line.done { background: var(--green); }
+
+    .card { background: var(--white); border-radius: 14px; padding: 2rem; box-shadow: var(--shadow); border: 1px solid var(--gray-300); }
+    .card-title { font-size: 21px; font-weight: 700; margin-bottom: 4px; }
+    .card-subtitle { font-size: 14px; color: var(--gray-500); margin-bottom: 1.75rem; }
+
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    .form-grid .full { grid-column: 1 / -1; }
+    .field { display: flex; flex-direction: column; gap: 5px; }
+    .field label { font-size: 13px; font-weight: 500; color: var(--gray-700); }
+    .field input, .field select, .field textarea {
+      padding: 10px 12px; border: 1.5px solid var(--gray-300); border-radius: var(--radius);
+      font-size: 15px; outline: none; transition: border-color 0.15s; font-family: inherit; width: 100%;
+    }
+    .field input:focus, .field select:focus, .field textarea:focus { border-color: var(--purple); box-shadow: 0 0 0 3px rgba(124,58,237,0.12); }
+    .field textarea { resize: vertical; min-height: 80px; }
+    .field .hint { font-size: 12px; color: var(--gray-500); }
+
+    /* TYPE CAMPAGNE CARDS */
+    .type-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .type-card { border: 2px solid var(--gray-300); border-radius: 12px; padding: 1.25rem; cursor: pointer; transition: all 0.15s; position: relative; }
+    .type-card:hover { border-color: var(--purple-border); }
+    .type-card.selected { border-color: var(--purple); background: var(--purple-light); }
+    .type-card input[type=radio] { position: absolute; opacity: 0; }
+    .type-emoji { font-size: 28px; margin-bottom: 8px; }
+    .type-name { font-size: 16px; font-weight: 600; color: var(--dark); margin-bottom: 4px; }
+    .type-price { font-size: 22px; font-weight: 700; color: var(--purple); margin-bottom: 8px; }
+    .type-price span { font-size: 13px; font-weight: 400; color: var(--gray-500); }
+    .type-desc { font-size: 13px; color: var(--gray-700); line-height: 1.5; }
+
+    /* RADIUS SLIDER */
+    .radius-display { font-size: 24px; font-weight: 700; color: var(--purple); text-align: center; margin-bottom: 6px; }
+    .radius-labels { display: flex; justify-content: space-between; font-size: 11px; color: var(--gray-500); margin-top: 4px; }
+
+    .btn-locate { width: 100%; padding: 10px; background: var(--gray-100); border: 1.5px solid var(--gray-300); border-radius: var(--radius); font-size: 13px; font-weight: 500; cursor: pointer; color: var(--gray-700); font-family: inherit; }
+    .btn-locate:hover { border-color: var(--purple); color: var(--purple); }
+
+    .btn-row { display: flex; gap: 10px; justify-content: space-between; margin-top: 1.75rem; }
+    .btn { padding: 12px 24px; border-radius: var(--radius); font-size: 15px; font-weight: 600; cursor: pointer; border: none; transition: all 0.15s; font-family: inherit; }
+    .btn-primary { background: var(--purple); color: white; flex: 1; }
+    .btn-primary:hover { background: #6D28D9; }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-secondary { background: var(--white); color: var(--gray-700); border: 1.5px solid var(--gray-300); min-width: 100px; }
+    .btn-secondary:hover { background: var(--gray-100); }
+
+    .alert { padding: 12px 16px; border-radius: var(--radius); font-size: 14px; margin-bottom: 1.25rem; display: none; }
+    .alert.error { background: var(--red-light); color: var(--red); border: 1px solid #FECACA; display: flex; align-items: center; gap: 8px; }
+
+    .step-panel { display: none; }
+    .step-panel.active { display: block; }
+
+    .summary-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--gray-100); font-size: 14px; }
+    .summary-row:last-child { border-bottom: none; }
+    .summary-label { color: var(--gray-500); }
+    .summary-val { font-weight: 500; color: var(--dark); }
+
+    .success-screen { text-align: center; padding: 2rem 0; display: none; }
+    .success-icon { width: 72px; height: 72px; background: var(--green-light); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 36px; margin: 0 auto 1.25rem; }
+    .success-screen h2 { font-size: 24px; font-weight: 700; margin-bottom: 8px; }
+    .success-screen p { color: var(--gray-500); font-size: 15px; max-width: 380px; margin: 0 auto 1.5rem; }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner { width: 18px; height: 18px; border: 2px solid rgba(255,255,255,0.4); border-top-color: white; border-radius: 50%; animation: spin 0.6s linear infinite; display: inline-block; }
+
+    @media (max-width: 560px) {
+      .form-grid { grid-template-columns: 1fr; }
+      .type-cards { grid-template-columns: 1fr; }
+      .card { padding: 1.25rem; }
+      .page { padding: 1.5rem 1rem 3rem; }
+    }
+  </style>
+</head>
+<body>
+
+<nav>
+  <a class="logo" href="index.html">
+    <div class="logo-icon">🚚</div>
+    TruckDrop
+  </a>
+  <a class="nav-link" href="index.html">← Retour à la carte</a>
+</nav>
+
+<div class="page">
+  <div class="intro">
+    <div class="emoji">📣</div>
+    <h1>Annoncez sur TruckDrop</h1>
+    <p>Touchez les amateurs de food trucks, partout ou près de votre commerce.</p>
+  </div>
+
+  <div class="progress-steps">
+    <div class="step-dot active" id="dot-1">1</div>
+    <div class="step-line" id="line-1"></div>
+    <div class="step-dot" id="dot-2">2</div>
+    <div class="step-line" id="line-2"></div>
+    <div class="step-dot" id="dot-3">3</div>
+  </div>
+
+  <div class="card">
+
+    <!-- ÉTAPE 1 : TYPE DE CAMPAGNE -->
+    <div class="step-panel active" id="step-1">
+      <div class="card-title">Choisissez votre campagne</div>
+      <div class="card-subtitle">Visibilité nationale ou ciblage local près de votre commerce.</div>
+
+      <div id="alert-1" class="alert"></div>
+
+      <div class="type-cards">
+        <label class="type-card selected" id="type-general" onclick="selectType('general')">
+          <input type="radio" name="ad_type" value="general">
+          <div class="type-emoji">🌍</div>
+          <div class="type-name">Générale</div>
+          <div class="type-price">49€ <span>/mois</span></div>
+          <div class="type-desc">Visible sur toute la plateforme, dans toutes les villes, sans limite de zone.</div>
+        </label>
+
+        <label class="type-card" id="type-local" onclick="selectType('local')">
+          <input type="radio" name="ad_type" value="local">
+          <div class="type-emoji">📍</div>
+          <div class="type-name">Locale</div>
+          <div class="type-price">30€ <span>/mois</span></div>
+          <div class="type-desc">Visible uniquement par les utilisateurs proches de votre commerce.</div>
+        </label>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="goStep2()">Continuer →</button>
+      </div>
+    </div>
+
+    <!-- ÉTAPE 2 : INFOS ENTREPRISE -->
+    <div class="step-panel" id="step-2">
+      <div class="card-title">Votre entreprise</div>
+      <div class="card-subtitle">Ces informations seront visibles dans votre annonce.</div>
+
+      <div id="alert-2" class="alert"></div>
+
+      <div class="form-grid">
+        <div class="field">
+          <label for="owner_name">Votre nom</label>
+          <input type="text" id="owner_name" placeholder="Jean Dupont">
+        </div>
+        <div class="field">
+          <label for="owner_email">Email</label>
+          <input type="email" id="owner_email" placeholder="jean@entreprise.fr">
+        </div>
+        <div class="field full">
+          <label for="business_name">Nom de l'entreprise</label>
+          <input type="text" id="business_name" placeholder="Le Bar du Coin">
+        </div>
+        <div class="field full">
+          <label for="business_type">Type de commerce</label>
+          <select id="business_type">
+            <option value="bar">Bar / Café</option>
+            <option value="restaurant">Restaurant</option>
+            <option value="sport">Salle de sport</option>
+            <option value="shop">Magasin</option>
+            <option value="service">Service local</option>
+            <option value="other">Autre</option>
+          </select>
+        </div>
+        <div class="field full">
+          <label for="description">Description courte</label>
+          <textarea id="description" placeholder="Présentez votre commerce en quelques mots…"></textarea>
+        </div>
+        <div class="field full">
+          <label for="cta_link">Lien (site web, Google Maps, réseaux sociaux)</label>
+          <input type="text" id="cta_link" placeholder="https://...">
+        </div>
+
+        <!-- Champs spécifiques campagne locale -->
+        <div class="field full" id="local-address-field" style="display:none">
+          <label for="address">Adresse de votre commerce</label>
+          <input type="text" id="address" placeholder="12 rue de la Paix">
+        </div>
+        <div class="field" id="local-city-field" style="display:none">
+          <label for="city">Ville</label>
+          <input type="text" id="city" placeholder="Reims">
+        </div>
+        <div class="field full" id="local-gps-field" style="display:none">
+          <button type="button" class="btn-locate" onclick="getLocation()">📍 Utiliser ma position actuelle</button>
+          <span class="hint" id="gps-status"></span>
+        </div>
+        <div class="field full" id="local-radius-field" style="display:none">
+          <label for="radius">Rayon de diffusion</label>
+          <div class="radius-display" id="radius-display">5 km</div>
+          <input type="range" id="radius" min="1" max="20" value="5" oninput="updateRadius(this.value)">
+          <div class="radius-labels"><span>1 km</span><span>20 km</span></div>
+        </div>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn btn-secondary" onclick="goStep(1)">← Retour</button>
+        <button class="btn btn-primary" onclick="goStep3()">Voir le récapitulatif →</button>
+      </div>
+    </div>
+
+    <!-- ÉTAPE 3 : RÉCAP -->
+    <div class="step-panel" id="step-3">
+      <div class="card-title">Récapitulatif</div>
+      <div class="card-subtitle">Vérifiez avant de passer au paiement.</div>
+
+      <div id="alert-3" class="alert"></div>
+
+      <div id="summary-content">
+        <div class="summary-row"><span class="summary-label">Type de campagne</span><span class="summary-val" id="sum-type">—</span></div>
+        <div class="summary-row"><span class="summary-label">Entreprise</span><span class="summary-val" id="sum-business">—</span></div>
+        <div class="summary-row" id="sum-zone-row" style="display:none"><span class="summary-label">Zone de diffusion</span><span class="summary-val" id="sum-zone">—</span></div>
+        <div class="summary-row" style="padding-top:14px;margin-top:4px;border-top:1px solid var(--gray-300);border-bottom:none">
+          <span class="summary-label" style="font-weight:600;color:var(--dark)">Total mensuel</span>
+          <span class="summary-val" style="font-size:20px;color:var(--purple)" id="sum-price">—</span>
+        </div>
+      </div>
+
+      <p style="font-size:12px;color:var(--gray-500);margin-top:1rem;line-height:1.5">
+        Votre annonce sera activée après validation du paiement. Vous pourrez la modifier ou l'annuler à tout moment.
+      </p>
+
+      <div class="btn-row">
+        <button class="btn btn-secondary" onclick="goStep(2)">← Retour</button>
+        <button class="btn btn-primary" id="btn-submit" onclick="submitAd()">Continuer vers le paiement 💳</button>
+      </div>
+    </div>
+
+    <!-- SUCCÈS -->
+    <div class="success-screen" id="success-screen">
+      <div class="success-icon">✅</div>
+      <h2>Annonce créée !</h2>
+      <p>Votre campagne sera activée dès la confirmation du paiement.</p>
+      <button class="btn btn-primary" style="max-width:240px;margin:0 auto" onclick="window.location.href='index.html'">
+        Retour à l'accueil →
+      </button>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  const SUPABASE_URL = 'https://ooshjxostygdljkfhhwb.supabase.co';
+  const SUPABASE_ANON_KEY = 'sb_publishable_K80E3dBUm7s5m9No3zLQZw_fknMCUfv';
+  const { createClient } = supabase;
+  const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  const state = { step: 1, adType: 'general', radius: 5, lat: null, lng: null };
+
+  // ============================================
+  // PRICE IDs STRIPE
+  // ============================================
+  const STRIPE_AD_PRICE_IDS = {
+    general: 'price_1To3xP9ZBfE75LzJNYZbXUu8',
+    local: 'price_1To3xh9ZBfE75LzJT5K1yddi'
+  };
+
+  function goStep(n) {
+    document.getElementById('step-' + state.step).classList.remove('active');
+    state.step = n;
+    document.getElementById('step-' + n).classList.add('active');
+    updateProgress();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function updateProgress() {
+    for (let i = 1; i <= 3; i++) {
+      const dot = document.getElementById('dot-' + i);
+      dot.className = 'step-dot';
+      if (i < state.step) { dot.classList.add('done'); dot.textContent = '✓'; }
+      else if (i === state.step) { dot.classList.add('active'); dot.textContent = i; }
+      else { dot.textContent = i; }
+      if (i < 3) document.getElementById('line-' + i).className = 'step-line' + (i < state.step ? ' done' : '');
+    }
+  }
+
+  function selectType(type) {
+    state.adType = type;
+    document.getElementById('type-general').classList.toggle('selected', type === 'general');
+    document.getElementById('type-local').classList.toggle('selected', type === 'local');
+
+    const showLocal = type === 'local';
+    ['local-address-field', 'local-city-field', 'local-gps-field', 'local-radius-field'].forEach(id => {
+      document.getElementById(id).style.display = showLocal ? 'block' : 'none';
+    });
+  }
+
+  function goStep2() { goStep(2); }
+
+  function goStep3() {
+    const businessName = document.getElementById('business_name').value.trim();
+    const ownerName = document.getElementById('owner_name').value.trim();
+    const email = document.getElementById('owner_email').value.trim();
+
+    clearAlert('alert-2');
+    if (!businessName || !ownerName || !email) { showAlert('alert-2', 'Remplissez tous les champs obligatoires.'); return; }
+    if (!email.includes('@')) { showAlert('alert-2', 'Adresse email invalide.'); return; }
+
+    if (state.adType === 'local') {
+      const city = document.getElementById('city').value.trim();
+      if (!city) { showAlert('alert-2', 'Indiquez la ville pour une campagne locale.'); return; }
+      if (!state.lat) { showAlert('alert-2', 'Utilisez le bouton "Ma position" pour localiser votre commerce.'); return; }
+    }
+
+    const typeLabels = { general: '🌍 Générale', local: '📍 Locale' };
+    document.getElementById('sum-type').textContent = typeLabels[state.adType];
+    document.getElementById('sum-business').textContent = businessName;
+
+    if (state.adType === 'local') {
+      document.getElementById('sum-zone-row').style.display = 'flex';
+      document.getElementById('sum-zone').textContent = document.getElementById('city').value + ' — rayon ' + state.radius + ' km';
+      document.getElementById('sum-price').textContent = '30€/mois';
+    } else {
+      document.getElementById('sum-zone-row').style.display = 'none';
+      document.getElementById('sum-price').textContent = '49€/mois';
+    }
+
+    goStep(3);
+  }
+
+  function getLocation() {
+    const statusEl = document.getElementById('gps-status');
+    if (!navigator.geolocation) { statusEl.textContent = 'Géolocalisation non disponible.'; return; }
+    statusEl.textContent = 'Localisation en cours…';
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        state.lat = pos.coords.latitude;
+        state.lng = pos.coords.longitude;
+        statusEl.textContent = '✓ Position enregistrée';
+        statusEl.style.color = 'var(--green)';
+      },
+      () => { statusEl.textContent = 'Impossible de récupérer la position.'; }
+    );
+  }
+
+  function updateRadius(val) {
+    state.radius = parseInt(val);
+    document.getElementById('radius-display').textContent = state.radius + ' km';
+  }
+
+  async function submitAd() {
+    const btn = document.getElementById('btn-submit');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Création en cours…';
+    clearAlert('alert-3');
+
+    try {
+      const adData = {
+        owner_email: document.getElementById('owner_email').value.trim(),
+        owner_name: document.getElementById('owner_name').value.trim(),
+        business_name: document.getElementById('business_name').value.trim(),
+        business_type: document.getElementById('business_type').value,
+        description: document.getElementById('description').value.trim(),
+        cta_link: document.getElementById('cta_link').value.trim(),
+        ad_type: state.adType,
+        status: 'pending',
+        monthly_price: state.adType === 'general' ? 4900 : 3000
+      };
+
+      if (state.adType === 'local') {
+        adData.location = `POINT(${state.lng} ${state.lat})`;
+        adData.radius_km = state.radius;
+        adData.city = document.getElementById('city').value.trim();
+        adData.address = document.getElementById('address').value.trim();
+      }
+
+      const { data, error } = await sb.from('ads').insert(adData).select().single();
+      if (error) throw error;
+
+      // Redirection vers Stripe Checkout pour le paiement de l'abonnement pub
+      btn.innerHTML = '<span class="spinner"></span> Redirection vers le paiement…';
+
+      const checkoutRes = await fetch('/api/create-ad-checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          priceId: STRIPE_AD_PRICE_IDS[state.adType],
+          adId: data.id,
+          email: adData.owner_email,
+          adType: state.adType
+        })
+      });
+
+      const checkoutData = await checkoutRes.json();
+      if (checkoutData.error) throw new Error(checkoutData.error);
+
+      window.location.href = checkoutData.url;
+      return;
+
+    } catch (err) {
+      console.error(err);
+      showAlert('alert-3', 'Une erreur est survenue. Réessayez.');
+      btn.disabled = false;
+      btn.innerHTML = 'Continuer vers le paiement 💳';
+    }
+  }
+
+  function showAlert(id, msg) {
+    const el = document.getElementById(id);
+    el.className = 'alert error';
+    el.innerHTML = '⚠️ ' + msg;
+  }
+  function clearAlert(id) { document.getElementById(id).className = 'alert'; }
+</script>
+</body>
+</html>
