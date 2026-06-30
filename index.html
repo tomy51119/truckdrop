@@ -362,13 +362,33 @@
       font-size: 14px;
       box-shadow: 0 2px 8px rgba(124,58,237,0.4);
     }
-    .user-marker {
-      background: #3B82F6;
-      border: 3px solid white;
+    .user-marker-wrap {
+      width: 22px !important;
+      height: 22px !important;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .user-marker-pulse {
+      position: absolute;
+      width: 22px;
+      height: 22px;
       border-radius: 50%;
-      width: 16px !important;
-      height: 16px !important;
-      box-shadow: 0 0 0 4px rgba(59,130,246,0.2);
+      background: rgba(59,130,246,0.3);
+      animation: user-pulse 2s ease-out infinite;
+    }
+    .user-marker-dot {
+      position: relative;
+      width: 14px;
+      height: 14px;
+      background: #3B82F6;
+      border: 2.5px solid white;
+      border-radius: 50%;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+    }
+    @keyframes user-pulse {
+      0% { transform: scale(0.6); opacity: 0.8; }
+      100% { transform: scale(2.2); opacity: 0; }
     }
   </style>
 </head>
@@ -503,7 +523,12 @@
     initMap(lat, lng);
 
     if (userMarker) userMarker.remove();
-    const userIcon = L.divIcon({ className: 'user-marker', iconSize: [16, 16] });
+    const userIcon = L.divIcon({
+      className: 'user-marker-wrap',
+      html: '<div class="user-marker-pulse"></div><div class="user-marker-dot"></div>',
+      iconSize: [22, 22],
+      iconAnchor: [11, 11]
+    });
     userMarker = L.marker([lat, lng], { icon: userIcon }).addTo(map);
 
     if (radiusCircle) radiusCircle.remove();
