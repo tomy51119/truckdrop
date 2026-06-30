@@ -1,0 +1,861 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TruckDrop — Inscrivez votre food truck</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --orange: #F97316;
+      --orange-light: #FFF7ED;
+      --orange-border: #FDBA74;
+      --dark: #111827;
+      --gray-900: #1F2937;
+      --gray-700: #374151;
+      --gray-500: #6B7280;
+      --gray-300: #D1D5DB;
+      --gray-100: #F3F4F6;
+      --white: #FFFFFF;
+      --green: #16A34A;
+      --green-light: #F0FDF4;
+      --red: #DC2626;
+      --red-light: #FEF2F2;
+      --radius: 10px;
+      --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04);
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--gray-100);
+      color: var(--dark);
+      min-height: 100vh;
+      line-height: 1.6;
+    }
+
+    /* NAV */
+    nav {
+      background: var(--white);
+      border-bottom: 1px solid var(--gray-300);
+      padding: 0 2rem;
+      height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--dark);
+      text-decoration: none;
+    }
+    .logo-icon {
+      width: 32px;
+      height: 32px;
+      background: var(--orange);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+    }
+    .nav-link {
+      font-size: 14px;
+      color: var(--gray-500);
+      text-decoration: none;
+    }
+    .nav-link:hover { color: var(--dark); }
+
+    /* LAYOUT */
+    .page {
+      max-width: 680px;
+      margin: 0 auto;
+      padding: 2.5rem 1.5rem 4rem;
+    }
+
+    /* PROGRESS */
+    .progress-wrap {
+      margin-bottom: 2rem;
+    }
+    .progress-steps {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      margin-bottom: 1rem;
+    }
+    .step-dot {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      border: 2px solid var(--gray-300);
+      background: var(--white);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--gray-500);
+      flex-shrink: 0;
+      transition: all 0.2s;
+      position: relative;
+      z-index: 1;
+    }
+    .step-dot.active {
+      border-color: var(--orange);
+      background: var(--orange);
+      color: var(--white);
+    }
+    .step-dot.done {
+      border-color: var(--green);
+      background: var(--green);
+      color: var(--white);
+    }
+    .step-line {
+      flex: 1;
+      height: 2px;
+      background: var(--gray-300);
+      transition: background 0.2s;
+    }
+    .step-line.done { background: var(--green); }
+    .step-labels {
+      display: flex;
+      justify-content: space-between;
+    }
+    .step-label {
+      font-size: 12px;
+      color: var(--gray-500);
+      text-align: center;
+      flex: 1;
+    }
+    .step-label:first-child { text-align: left; }
+    .step-label:last-child { text-align: right; }
+    .step-label.active { color: var(--orange); font-weight: 500; }
+
+    /* CARD */
+    .card {
+      background: var(--white);
+      border-radius: 14px;
+      padding: 2rem;
+      box-shadow: var(--shadow);
+      border: 1px solid var(--gray-300);
+    }
+    .card-title {
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--dark);
+      margin-bottom: 6px;
+    }
+    .card-subtitle {
+      font-size: 15px;
+      color: var(--gray-500);
+      margin-bottom: 1.75rem;
+    }
+
+    /* FORM */
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+    }
+    .form-grid .full { grid-column: 1 / -1; }
+    .field { display: flex; flex-direction: column; gap: 5px; }
+    .field label {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--gray-700);
+    }
+    .field input,
+    .field select,
+    .field textarea {
+      padding: 10px 12px;
+      border: 1.5px solid var(--gray-300);
+      border-radius: var(--radius);
+      font-size: 15px;
+      color: var(--dark);
+      background: var(--white);
+      outline: none;
+      transition: border-color 0.15s;
+      font-family: inherit;
+      width: 100%;
+    }
+    .field input:focus,
+    .field select:focus,
+    .field textarea:focus {
+      border-color: var(--orange);
+      box-shadow: 0 0 0 3px rgba(249,115,22,0.12);
+    }
+    .field input.error,
+    .field select.error { border-color: var(--red); }
+    .field textarea { resize: vertical; min-height: 90px; }
+    .field .hint {
+      font-size: 12px;
+      color: var(--gray-500);
+    }
+    .field .err-msg {
+      font-size: 12px;
+      color: var(--red);
+      display: none;
+    }
+    .field input.error + .err-msg,
+    .field select.error + .err-msg { display: block; }
+
+    /* PLAN CARDS */
+    .plans {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-top: 0.5rem;
+    }
+    .plan-card {
+      border: 2px solid var(--gray-300);
+      border-radius: 12px;
+      padding: 1rem;
+      cursor: pointer;
+      transition: all 0.15s;
+      position: relative;
+    }
+    .plan-card:hover { border-color: var(--orange-border); }
+    .plan-card.selected {
+      border-color: var(--orange);
+      background: var(--orange-light);
+    }
+    .plan-card input[type=radio] {
+      position: absolute;
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    .plan-emoji { font-size: 24px; margin-bottom: 6px; }
+    .plan-name { font-size: 15px; font-weight: 600; color: var(--dark); }
+    .plan-price {
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--orange);
+      margin: 4px 0;
+    }
+    .plan-price span { font-size: 13px; font-weight: 400; color: var(--gray-500); }
+    .plan-features {
+      list-style: none;
+      margin-top: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .plan-features li {
+      font-size: 12px;
+      color: var(--gray-700);
+      display: flex;
+      align-items: flex-start;
+      gap: 5px;
+    }
+    .plan-features li::before { content: "✓"; color: var(--green); font-weight: 600; flex-shrink: 0; }
+    .plan-badge {
+      position: absolute;
+      top: -10px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--orange);
+      color: white;
+      font-size: 10px;
+      font-weight: 600;
+      padding: 2px 10px;
+      border-radius: 20px;
+      white-space: nowrap;
+    }
+
+    /* CUISINE GRID */
+    .cuisine-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+    }
+    .cuisine-btn {
+      border: 1.5px solid var(--gray-300);
+      border-radius: var(--radius);
+      padding: 10px 6px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.15s;
+      font-size: 12px;
+      color: var(--gray-700);
+      background: var(--white);
+    }
+    .cuisine-btn .ce { font-size: 20px; display: block; margin-bottom: 4px; }
+    .cuisine-btn:hover { border-color: var(--orange-border); }
+    .cuisine-btn.selected {
+      border-color: var(--orange);
+      background: var(--orange-light);
+      color: var(--orange);
+      font-weight: 500;
+    }
+
+    /* BUTTONS */
+    .btn-row {
+      display: flex;
+      gap: 10px;
+      justify-content: space-between;
+      margin-top: 1.75rem;
+    }
+    .btn {
+      padding: 12px 24px;
+      border-radius: var(--radius);
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      transition: all 0.15s;
+      font-family: inherit;
+    }
+    .btn-primary {
+      background: var(--orange);
+      color: white;
+      flex: 1;
+    }
+    .btn-primary:hover { background: #EA6C0A; }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-secondary {
+      background: var(--white);
+      color: var(--gray-700);
+      border: 1.5px solid var(--gray-300);
+      min-width: 100px;
+    }
+    .btn-secondary:hover { background: var(--gray-100); }
+
+    /* ALERT */
+    .alert {
+      padding: 12px 16px;
+      border-radius: var(--radius);
+      font-size: 14px;
+      margin-bottom: 1.25rem;
+      display: none;
+    }
+    .alert.error { background: var(--red-light); color: var(--red); border: 1px solid #FECACA; display: flex; align-items: center; gap: 8px; }
+    .alert.success { background: var(--green-light); color: var(--green); border: 1px solid #BBF7D0; display: flex; align-items: center; gap: 8px; }
+
+    /* SUCCESS SCREEN */
+    .success-screen {
+      text-align: center;
+      padding: 2rem 0;
+      display: none;
+    }
+    .success-icon {
+      width: 72px;
+      height: 72px;
+      background: var(--green-light);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 36px;
+      margin: 0 auto 1.25rem;
+    }
+    .success-screen h2 { font-size: 24px; font-weight: 700; margin-bottom: 8px; }
+    .success-screen p { color: var(--gray-500); font-size: 15px; max-width: 360px; margin: 0 auto 1.5rem; }
+
+    /* STEP PANELS */
+    .step-panel { display: none; }
+    .step-panel.active { display: block; }
+
+    /* DIVIDER */
+    .or-divider {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 1.25rem 0;
+      color: var(--gray-500);
+      font-size: 13px;
+    }
+    .or-divider::before,
+    .or-divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--gray-300);
+    }
+
+    /* SUMMARY */
+    .summary-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--gray-100);
+      font-size: 14px;
+    }
+    .summary-row:last-child { border-bottom: none; }
+    .summary-label { color: var(--gray-500); }
+    .summary-val { font-weight: 500; color: var(--dark); }
+    .summary-plan {
+      background: var(--orange-light);
+      color: var(--orange);
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    /* LOADING SPINNER */
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner {
+      width: 18px; height: 18px;
+      border: 2px solid rgba(255,255,255,0.4);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+      display: inline-block;
+    }
+
+    @media (max-width: 560px) {
+      .form-grid { grid-template-columns: 1fr; }
+      .plans { grid-template-columns: 1fr; }
+      .cuisine-grid { grid-template-columns: repeat(3, 1fr); }
+      .card { padding: 1.25rem; }
+      .page { padding: 1.5rem 1rem 3rem; }
+    }
+  </style>
+</head>
+<body>
+
+<nav>
+  <a class="logo" href="#">
+    <div class="logo-icon">🚚</div>
+    TruckDrop
+  </a>
+  <a class="nav-link" href="#">Déjà inscrit ? Connexion</a>
+</nav>
+
+<div class="page">
+
+  <!-- PROGRESS BAR -->
+  <div class="progress-wrap">
+    <div class="progress-steps">
+      <div class="step-dot active" id="dot-1">1</div>
+      <div class="step-line" id="line-1"></div>
+      <div class="step-dot" id="dot-2">2</div>
+      <div class="step-line" id="line-2"></div>
+      <div class="step-dot" id="dot-3">3</div>
+      <div class="step-line" id="line-3"></div>
+      <div class="step-dot" id="dot-4">4</div>
+    </div>
+    <div class="step-labels">
+      <span class="step-label active" id="lbl-1">Compte</span>
+      <span class="step-label" id="lbl-2">Votre truck</span>
+      <span class="step-label" id="lbl-3">Formule</span>
+      <span class="step-label" id="lbl-4">Confirmation</span>
+    </div>
+  </div>
+
+  <div class="card">
+
+    <!-- ÉTAPE 1 : COMPTE -->
+    <div class="step-panel active" id="step-1">
+      <div class="card-title">Créez votre compte</div>
+      <div class="card-subtitle">Vous gérerez votre truck depuis cet espace.</div>
+
+      <div id="alert-1" class="alert"></div>
+
+      <div class="form-grid">
+        <div class="field">
+          <label for="full_name">Prénom et nom</label>
+          <input type="text" id="full_name" placeholder="Jean Dupont">
+        </div>
+        <div class="field">
+          <label for="phone_account">Téléphone</label>
+          <input type="tel" id="phone_account" placeholder="06 12 34 56 78">
+        </div>
+        <div class="field full">
+          <label for="email">Adresse email</label>
+          <input type="email" id="email" placeholder="jean@montruck.fr">
+        </div>
+        <div class="field">
+          <label for="password">Mot de passe</label>
+          <input type="password" id="password" placeholder="8 caractères minimum">
+        </div>
+        <div class="field">
+          <label for="password2">Confirmer</label>
+          <input type="password" id="password2" placeholder="Répétez le mot de passe">
+          <span class="err-msg" id="pw-err">Les mots de passe ne correspondent pas.</span>
+        </div>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="goStep2()">Continuer →</button>
+      </div>
+    </div>
+
+    <!-- ÉTAPE 2 : INFOS TRUCK -->
+    <div class="step-panel" id="step-2">
+      <div class="card-title">Votre food truck</div>
+      <div class="card-subtitle">Ces infos seront visibles par vos futurs clients.</div>
+
+      <div id="alert-2" class="alert"></div>
+
+      <div class="form-grid">
+        <div class="field full">
+          <label for="truck_name">Nom du food truck</label>
+          <input type="text" id="truck_name" placeholder="Ex : Le Wagon Burger">
+        </div>
+        <div class="field full">
+          <label>Type de cuisine</label>
+          <div class="cuisine-grid" id="cuisine-grid">
+            <div class="cuisine-btn" data-val="burger" onclick="selectCuisine(this)"><span class="ce">🍔</span>Burgers</div>
+            <div class="cuisine-btn" data-val="tacos" onclick="selectCuisine(this)"><span class="ce">🌮</span>Tacos</div>
+            <div class="cuisine-btn" data-val="asian" onclick="selectCuisine(this)"><span class="ce">🍜</span>Asiatique</div>
+            <div class="cuisine-btn" data-val="pizza" onclick="selectCuisine(this)"><span class="ce">🍕</span>Pizza</div>
+            <div class="cuisine-btn" data-val="vege" onclick="selectCuisine(this)"><span class="ce">🌱</span>Végé</div>
+            <div class="cuisine-btn" data-val="sweet" onclick="selectCuisine(this)"><span class="ce">🧇</span>Sucré</div>
+            <div class="cuisine-btn" data-val="bbq" onclick="selectCuisine(this)"><span class="ce">🔥</span>BBQ</div>
+            <div class="cuisine-btn" data-val="other" onclick="selectCuisine(this)"><span class="ce">🍽️</span>Autre</div>
+          </div>
+        </div>
+        <div class="field full">
+          <label for="description">Description <span style="color:var(--gray-500);font-weight:400">(optionnel)</span></label>
+          <textarea id="description" placeholder="Racontez votre concept en quelques mots…"></textarea>
+        </div>
+        <div class="field full">
+          <label for="city">Ville principale d'activité</label>
+          <input type="text" id="city" placeholder="Ex : Lyon, Bordeaux…">
+        </div>
+        <div class="field">
+          <label for="truck_phone">Téléphone du truck</label>
+          <input type="tel" id="truck_phone" placeholder="06 12 34 56 78">
+        </div>
+        <div class="field">
+          <label for="instagram">Instagram <span style="color:var(--gray-500);font-weight:400">(optionnel)</span></label>
+          <input type="text" id="instagram" placeholder="@montruck">
+        </div>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn btn-secondary" onclick="goStep(1)">← Retour</button>
+        <button class="btn btn-primary" onclick="goStep3()">Continuer →</button>
+      </div>
+    </div>
+
+    <!-- ÉTAPE 3 : PLAN -->
+    <div class="step-panel" id="step-3">
+      <div class="card-title">Choisissez votre formule</div>
+      <div class="card-subtitle">Changez de formule à tout moment depuis votre espace.</div>
+
+      <div class="plans">
+        <label class="plan-card" id="plan-gratuit" onclick="selectPlan('gratuit')">
+          <input type="radio" name="plan" value="gratuit">
+          <div class="plan-emoji">🆓</div>
+          <div class="plan-name">Gratuit</div>
+          <div class="plan-price">0€ <span>/mois</span></div>
+          <ul class="plan-features">
+            <li>Visible sur la carte</li>
+            <li>Carte profil publique</li>
+            <li>1 photo</li>
+            <li>Événements privés</li>
+          </ul>
+        </label>
+
+        <label class="plan-card" id="plan-starter" onclick="selectPlan('starter')">
+          <div class="plan-badge">Le plus populaire</div>
+          <input type="radio" name="plan" value="starter">
+          <div class="plan-emoji">📊</div>
+          <div class="plan-name">Starter</div>
+          <div class="plan-price">9€ <span>/mois</span></div>
+          <ul class="plan-features">
+            <li>Tout Gratuit inclus</li>
+            <li>Stats 3 derniers jours</li>
+            <li>1 photo</li>
+            <li>Événements privés</li>
+          </ul>
+        </label>
+
+        <label class="plan-card" id="plan-pro" onclick="selectPlan('pro')">
+          <input type="radio" name="plan" value="pro">
+          <div class="plan-emoji">🔔</div>
+          <div class="plan-name">Pro</div>
+          <div class="plan-price">19€ <span>/mois</span></div>
+          <ul class="plan-features">
+            <li>Tout Starter inclus</li>
+            <li>Stats illimitées</li>
+            <li>Photos illimitées</li>
+            <li>Notifs push clients</li>
+            <li>Badge Pro + priorité carte</li>
+          </ul>
+        </label>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn btn-secondary" onclick="goStep(2)">← Retour</button>
+        <button class="btn btn-primary" onclick="goStep4()">Voir le récapitulatif →</button>
+      </div>
+    </div>
+
+    <!-- ÉTAPE 4 : CONFIRMATION -->
+    <div class="step-panel" id="step-4">
+      <div class="card-title">Récapitulatif</div>
+      <div class="card-subtitle">Vérifiez vos informations avant de valider.</div>
+
+      <div id="alert-4" class="alert"></div>
+
+      <div id="summary-content">
+        <div class="summary-row">
+          <span class="summary-label">Nom du compte</span>
+          <span class="summary-val" id="sum-name">—</span>
+        </div>
+        <div class="summary-row">
+          <span class="summary-label">Email</span>
+          <span class="summary-val" id="sum-email">—</span>
+        </div>
+        <div class="summary-row">
+          <span class="summary-label">Food truck</span>
+          <span class="summary-val" id="sum-truck">—</span>
+        </div>
+        <div class="summary-row">
+          <span class="summary-label">Cuisine</span>
+          <span class="summary-val" id="sum-cuisine">—</span>
+        </div>
+        <div class="summary-row">
+          <span class="summary-label">Ville</span>
+          <span class="summary-val" id="sum-city">—</span>
+        </div>
+        <div class="summary-row">
+          <span class="summary-label">Formule choisie</span>
+          <span class="summary-val"><span class="summary-plan" id="sum-plan">—</span></span>
+        </div>
+        <div class="summary-row" style="padding-top:14px;margin-top:4px;border-top:1px solid var(--gray-300);border-bottom:none">
+          <span class="summary-label" style="font-weight:600;color:var(--dark)">Total mensuel</span>
+          <span class="summary-val" style="font-size:20px;color:var(--orange)" id="sum-price">—</span>
+        </div>
+      </div>
+
+      <p style="font-size:12px;color:var(--gray-500);margin-top:1rem;line-height:1.5">
+        En cliquant sur "Créer mon compte", vous acceptez les <a href="#" style="color:var(--orange)">conditions générales</a> de TruckDrop. Le paiement sera configuré après la création de votre compte via Stripe.
+      </p>
+
+      <div class="btn-row">
+        <button class="btn btn-secondary" onclick="goStep(3)">← Retour</button>
+        <button class="btn btn-primary" id="btn-submit" onclick="submitForm()">
+          Créer mon compte 🚀
+        </button>
+      </div>
+    </div>
+
+    <!-- SUCCÈS -->
+    <div class="success-screen" id="success-screen">
+      <div class="success-icon">✅</div>
+      <h2>Bienvenue sur TruckDrop !</h2>
+      <p>Votre compte a été créé. Vérifiez votre email pour confirmer votre adresse, puis connectez-vous à votre espace.</p>
+      <button class="btn btn-primary" style="max-width:240px;margin:0 auto" onclick="window.location.href='dashboard.html'">
+        Accéder à mon espace →
+      </button>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  // ============================================
+  // CONFIGURATION SUPABASE
+  // Remplacez par vos vraies clés Supabase
+  // ============================================
+  const SUPABASE_URL = 'https://ooshjxostygdljkfhhwb.supabase.co';
+  const SUPABASE_ANON_KEY = 'sb_publishable_K80E3dBUm7s5m9No3zLQZw_fknMCUfv';
+  const { createClient } = supabase;
+  const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  // État du formulaire
+  const state = {
+    step: 1,
+    plan: 'pro',
+    cuisine: null,
+    planPrices: { gratuit: 0, starter: 9, pro: 19 },
+    planLabels: { gratuit: 'Gratuit', starter: 'Starter', pro: 'Pro' }
+  };
+
+  // Sélection plan par défaut
+  selectPlan('starter');
+
+  // ============================================
+  // NAVIGATION ENTRE ÉTAPES
+  // ============================================
+  function goStep(n) {
+    document.getElementById('step-' + state.step).classList.remove('active');
+    state.step = n;
+    document.getElementById('step-' + n).classList.add('active');
+    updateProgress();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function updateProgress() {
+    for (let i = 1; i <= 4; i++) {
+      const dot = document.getElementById('dot-' + i);
+      const lbl = document.getElementById('lbl-' + i);
+      dot.className = 'step-dot';
+      lbl.className = 'step-label';
+      if (i < state.step) { dot.classList.add('done'); dot.textContent = '✓'; }
+      else if (i === state.step) { dot.classList.add('active'); dot.textContent = i; lbl.classList.add('active'); }
+      else { dot.textContent = i; }
+      if (i < 4) {
+        document.getElementById('line-' + i).className = 'step-line' + (i < state.step ? ' done' : '');
+      }
+    }
+  }
+
+  // ============================================
+  // ÉTAPE 1 → 2 : Validation compte
+  // ============================================
+  function goStep2() {
+    const name = document.getElementById('full_name').value.trim();
+    const email = document.getElementById('email').value.trim();
+    const pw = document.getElementById('password').value;
+    const pw2 = document.getElementById('password2').value;
+
+    clearAlert('alert-1');
+
+    if (!name || !email || !pw) {
+      showAlert('alert-1', 'error', 'Remplissez tous les champs obligatoires.');
+      return;
+    }
+    if (!email.includes('@')) {
+      showAlert('alert-1', 'error', 'Adresse email invalide.');
+      return;
+    }
+    if (pw.length < 8) {
+      showAlert('alert-1', 'error', 'Le mot de passe doit faire au moins 8 caractères.');
+      return;
+    }
+    if (pw !== pw2) {
+      document.getElementById('password2').classList.add('error');
+      document.getElementById('pw-err').style.display = 'block';
+      return;
+    }
+    document.getElementById('password2').classList.remove('error');
+    document.getElementById('pw-err').style.display = 'none';
+    goStep(2);
+  }
+
+  // ============================================
+  // ÉTAPE 2 → 3 : Validation truck
+  // ============================================
+  function goStep3() {
+    const name = document.getElementById('truck_name').value.trim();
+    const city = document.getElementById('city').value.trim();
+    clearAlert('alert-2');
+
+    if (!name) { showAlert('alert-2', 'error', 'Le nom du food truck est requis.'); return; }
+    if (!state.cuisine) { showAlert('alert-2', 'error', 'Choisissez un type de cuisine.'); return; }
+    if (!city) { showAlert('alert-2', 'error', 'La ville est requise.'); return; }
+    goStep(3);
+  }
+
+  // ============================================
+  // ÉTAPE 3 → 4 : Récapitulatif
+  // ============================================
+  function goStep4() {
+    const cuisineLabels = {
+      burger:'Burgers', tacos:'Tacos', asian:'Asiatique', pizza:'Pizza',
+      vege:'Végé', sweet:'Sucré', bbq:'BBQ', other:'Autre'
+    };
+    document.getElementById('sum-name').textContent = document.getElementById('full_name').value;
+    document.getElementById('sum-email').textContent = document.getElementById('email').value;
+    document.getElementById('sum-truck').textContent = document.getElementById('truck_name').value;
+    document.getElementById('sum-cuisine').textContent = cuisineLabels[state.cuisine] || '—';
+    document.getElementById('sum-city').textContent = document.getElementById('city').value;
+    document.getElementById('sum-plan').textContent = state.planLabels[state.plan];
+    document.getElementById('sum-price').textContent = state.plan === 'gratuit' ? 'Gratuit' : state.planPrices[state.plan] + '€/mois';
+    goStep(4);
+  }
+
+  // ============================================
+  // SOUMISSION FINALE → Supabase
+  // ============================================
+  async function submitForm() {
+    const btn = document.getElementById('btn-submit');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Création en cours…';
+    clearAlert('alert-4');
+
+    const email = document.getElementById('email').value.trim();
+    const password = document.getElementById('password').value;
+    const fullName = document.getElementById('full_name').value.trim();
+
+    try {
+      // 1. Créer le compte Supabase Auth
+      const { data: authData, error: authError } = await sb.auth.signUp({
+        email,
+        password,
+        options: { data: { full_name: fullName } }
+      });
+
+      if (authError) throw authError;
+
+      // 2. Mettre à jour le profil (role = owner)
+      await sb.from('profiles').update({
+        full_name: fullName,
+        role: 'owner'
+      }).eq('id', authData.user.id);
+
+      // 3. Créer le food truck
+      const { error: truckError } = await sb.from('food_trucks').insert({
+        owner_id: authData.user.id,
+        name: document.getElementById('truck_name').value.trim(),
+        cuisine_type: state.cuisine,
+        description: document.getElementById('description').value.trim(),
+        phone: document.getElementById('truck_phone').value.trim(),
+        instagram: document.getElementById('instagram').value.trim().replace('@', ''),
+        city: document.getElementById('city').value.trim(),
+        plan: state.plan
+      });
+
+      if (truckError) throw truckError;
+
+      // Succès !
+      document.getElementById('step-4').classList.remove('active');
+      document.getElementById('success-screen').style.display = 'block';
+
+    } catch (err) {
+      console.error(err);
+      let msg = 'Une erreur est survenue. Réessayez.';
+      if (err.message?.includes('already registered')) msg = 'Cet email est déjà utilisé.';
+      if (err.message?.includes('password')) msg = 'Mot de passe trop faible.';
+      showAlert('alert-4', 'error', msg);
+      btn.disabled = false;
+      btn.innerHTML = 'Créer mon compte 🚀';
+    }
+  }
+
+  // ============================================
+  // HELPERS UI
+  // ============================================
+  function selectPlan(plan) {
+    state.plan = plan;
+    ['gratuit', 'starter', 'pro'].forEach(p => {
+      document.getElementById('plan-' + p)?.classList.remove('selected');
+    });
+    document.getElementById('plan-' + plan)?.classList.add('selected');
+  }
+
+  function selectCuisine(el) {
+    document.querySelectorAll('.cuisine-btn').forEach(b => b.classList.remove('selected'));
+    el.classList.add('selected');
+    state.cuisine = el.dataset.val;
+  }
+
+  function showAlert(id, type, msg) {
+    const el = document.getElementById(id);
+    el.className = 'alert ' + type;
+    el.innerHTML = (type === 'error' ? '⚠️ ' : '✅ ') + msg;
+  }
+
+  function clearAlert(id) {
+    const el = document.getElementById(id);
+    el.className = 'alert';
+    el.innerHTML = '';
+  }
+</script>
+</body>
+</html>

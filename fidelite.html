@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TruckDrop — Ma fidélité</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --orange: #F97316;
+      --orange-light: #FFF7ED;
+      --orange-border: #FDBA74;
+      --dark: #111827;
+      --gray-700: #374151;
+      --gray-500: #6B7280;
+      --gray-300: #D1D5DB;
+      --gray-100: #F3F4F6;
+      --white: #FFFFFF;
+      --green: #16A34A;
+      --green-light: #F0FDF4;
+      --gold: #D97706;
+      --gold-light: #FFFBEB;
+      --silver: #6B7280;
+      --bronze: #92400E;
+      --radius: 12px;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--gray-100);
+      color: var(--dark);
+      min-height: 100vh;
+    }
+
+    nav {
+      background: var(--white);
+      border-bottom: 1px solid var(--gray-300);
+      padding: 0 1.5rem;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .logo { display: flex; align-items: center; gap: 8px; font-size: 18px; font-weight: 700; text-decoration: none; color: var(--dark); }
+    .logo-icon { width: 30px; height: 30px; background: var(--orange); border-radius: 7px; display: flex; align-items: center; justify-content: center; font-size: 16px; }
+
+    .page { max-width: 480px; margin: 0 auto; padding: 1.5rem 1rem 4rem; }
+
+    /* CARTE FIDÉLITÉ */
+    .loyalty-card {
+      border-radius: 18px;
+      padding: 1.5rem;
+      margin-bottom: 1.25rem;
+      position: relative;
+      overflow: hidden;
+      min-height: 180px;
+    }
+    .loyalty-card.curieux  { background: #F3F4F6; border: 1.5px solid #D1D5DB; }
+    .loyalty-card.regulier { background: linear-gradient(135deg, #fef3c7, #fde68a); border: 1.5px solid #FCD34D; }
+    .loyalty-card.addict   { background: linear-gradient(135deg, #e0e7ff, #c7d2fe); border: 1.5px solid #A5B4FC; }
+    .loyalty-card.vip      { background: linear-gradient(135deg, #fef9c3, #fde047); border: 1.5px solid #FBBF24; }
+
+    .card-top { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 1.25rem; }
+    .card-brand { font-size: 16px; font-weight: 700; color: var(--dark); opacity: 0.6; }
+    .card-level-badge {
+      display: flex; align-items: center; gap: 6px;
+      padding: 4px 12px; border-radius: 20px;
+      font-size: 13px; font-weight: 600;
+    }
+    .badge-curieux  { background: rgba(0,0,0,0.08); color: var(--gray-700); }
+    .badge-regulier { background: rgba(217,119,6,0.15); color: #92400E; }
+    .badge-addict   { background: rgba(99,102,241,0.15); color: #3730A3; }
+    .badge-vip      { background: rgba(217,119,6,0.25); color: #78350F; }
+
+    .card-points { font-size: 48px; font-weight: 800; color: var(--dark); line-height: 1; }
+    .card-points-label { font-size: 13px; color: var(--gray-500); margin-top: 4px; }
+    .card-name { font-size: 15px; font-weight: 600; color: var(--dark); margin-top: 1rem; }
+
+    /* BARRE DE PROGRESSION */
+    .progress-section { margin-bottom: 1.25rem; }
+    .progress-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    .progress-label { font-size: 13px; color: var(--gray-700); font-weight: 500; }
+    .progress-target { font-size: 13px; color: var(--gray-500); }
+    .progress-bar-wrap { height: 8px; background: var(--gray-300); border-radius: 20px; overflow: hidden; }
+    .progress-bar-fill { height: 100%; border-radius: 20px; background: var(--orange); transition: width 0.6s ease; }
+    .progress-bar-fill.vip { background: linear-gradient(90deg, #F59E0B, #F97316); }
+    .progress-next { font-size: 12px; color: var(--gray-500); margin-top: 6px; }
+
+    /* NIVEAUX */
+    .levels-card {
+      background: var(--white);
+      border: 1px solid var(--gray-300);
+      border-radius: var(--radius);
+      padding: 1.25rem;
+      margin-bottom: 1.25rem;
+    }
+    .levels-title { font-size: 14px; font-weight: 600; color: var(--dark); margin-bottom: 1rem; }
+    .level-row {
+      display: flex; align-items: center; gap: 12px;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--gray-100);
+    }
+    .level-row:last-child { border-bottom: none; padding-bottom: 0; }
+    .level-icon { font-size: 22px; width: 36px; text-align: center; flex-shrink: 0; }
+    .level-info { flex: 1; }
+    .level-name { font-size: 14px; font-weight: 600; color: var(--dark); }
+    .level-desc { font-size: 12px; color: var(--gray-500); margin-top: 1px; }
+    .level-pts { font-size: 12px; font-weight: 500; color: var(--gray-500); white-space: nowrap; }
+    .level-current { background: var(--orange-light); border-radius: 6px; padding: 2px 8px; font-size: 11px; font-weight: 600; color: var(--orange); }
+
+    /* COMMENT GAGNER */
+    .earn-card {
+      background: var(--white);
+      border: 1px solid var(--gray-300);
+      border-radius: var(--radius);
+      padding: 1.25rem;
+      margin-bottom: 1.25rem;
+    }
+    .earn-title { font-size: 14px; font-weight: 600; color: var(--dark); margin-bottom: 1rem; }
+    .earn-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 9px 0;
+      border-bottom: 1px solid var(--gray-100);
+    }
+    .earn-row:last-child { border-bottom: none; padding-bottom: 0; }
+    .earn-left { display: flex; align-items: center; gap: 10px; }
+    .earn-emoji { font-size: 18px; }
+    .earn-action { font-size: 13px; color: var(--gray-700); }
+    .earn-pts { font-size: 13px; font-weight: 700; color: var(--orange); }
+
+    /* HISTORIQUE */
+    .history-card {
+      background: var(--white);
+      border: 1px solid var(--gray-300);
+      border-radius: var(--radius);
+      padding: 1.25rem;
+    }
+    .history-title { font-size: 14px; font-weight: 600; color: var(--dark); margin-bottom: 1rem; }
+    .history-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 9px 0;
+      border-bottom: 1px solid var(--gray-100);
+    }
+    .history-row:last-child { border-bottom: none; }
+    .history-left { display: flex; align-items: center; gap: 10px; }
+    .history-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .history-dot.plus { background: var(--green); }
+    .history-dot.minus { background: var(--orange); }
+    .history-desc { font-size: 13px; color: var(--gray-700); }
+    .history-date { font-size: 11px; color: var(--gray-500); }
+    .history-pts { font-size: 13px; font-weight: 700; }
+    .history-pts.plus { color: var(--green); }
+    .history-pts.minus { color: var(--orange); }
+
+    /* VIP BANNER */
+    .vip-banner {
+      background: linear-gradient(135deg, #FFFBEB, #FEF3C7);
+      border: 1.5px solid #FCD34D;
+      border-radius: var(--radius);
+      padding: 1.25rem;
+      margin-bottom: 1.25rem;
+      display: none;
+    }
+    .vip-banner.show { display: block; }
+    .vip-banner-title { font-size: 15px; font-weight: 700; color: #78350F; margin-bottom: 6px; }
+    .vip-banner-desc { font-size: 13px; color: #92400E; margin-bottom: 1rem; line-height: 1.5; }
+    .btn-vip {
+      background: var(--gold);
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      width: 100%;
+    }
+    .btn-vip:hover { background: #B45309; }
+
+    .empty-history { text-align: center; padding: 1.5rem; color: var(--gray-500); font-size: 14px; }
+  </style>
+</head>
+<body>
+
+<nav>
+  <a class="logo" href="#">
+    <div class="logo-icon">🚚</div>
+    TruckDrop
+  </a>
+  <span style="font-size:13px;color:var(--gray-500)">Ma fidélité</span>
+</nav>
+
+<div class="page">
+
+  <!-- CARTE FIDÉLITÉ -->
+  <div class="loyalty-card" id="loyalty-card">
+    <div class="card-top">
+      <span class="card-brand">TruckDrop</span>
+      <span class="card-level-badge" id="level-badge">🥉 Curieux</span>
+    </div>
+    <div class="card-points" id="card-points">0</div>
+    <div class="card-points-label">points</div>
+    <div class="card-name" id="card-name">—</div>
+  </div>
+
+  <!-- VIP BANNER (visible seulement si VIP) -->
+  <div class="vip-banner" id="vip-banner">
+    <div class="vip-banner-title">💎 Vous êtes VIP !</div>
+    <div class="vip-banner-desc">
+      Vous avez atteint 3000 points. Utilisez votre réduction de 5% sur votre prochain événement privé. Une fois utilisée, votre compteur repart à zéro.
+    </div>
+    <button class="btn-vip" onclick="useVipReward()">Utiliser ma réduction 5% →</button>
+  </div>
+
+  <!-- BARRE DE PROGRESSION -->
+  <div class="progress-section">
+    <div class="progress-header">
+      <span class="progress-label" id="progress-label">Vers Régulier</span>
+      <span class="progress-target" id="progress-target">0 / 500 pts</span>
+    </div>
+    <div class="progress-bar-wrap">
+      <div class="progress-bar-fill" id="progress-fill" style="width:0%"></div>
+    </div>
+    <div class="progress-next" id="progress-next">Encore 500 points pour passer au niveau suivant</div>
+  </div>
+
+  <!-- NIVEAUX -->
+  <div class="levels-card">
+    <div class="levels-title">Les niveaux</div>
+    <div class="level-row">
+      <div class="level-icon">🥉</div>
+      <div class="level-info">
+        <div class="level-name">Curieux</div>
+        <div class="level-desc">Bienvenue sur TruckDrop</div>
+      </div>
+      <div class="level-pts">0 pts</div>
+    </div>
+    <div class="level-row">
+      <div class="level-icon">🥈</div>
+      <div class="level-info">
+        <div class="level-name">Régulier</div>
+        <div class="level-desc">Badge + rapport mensuel</div>
+      </div>
+      <div class="level-pts">500 pts</div>
+    </div>
+    <div class="level-row">
+      <div class="level-icon">🥇</div>
+      <div class="level-info">
+        <div class="level-name">Addict</div>
+        <div class="level-desc">Badge + rapport mensuel détaillé</div>
+      </div>
+      <div class="level-pts">1 500 pts</div>
+    </div>
+    <div class="level-row">
+      <div class="level-icon">💎</div>
+      <div class="level-info">
+        <div class="level-name">VIP</div>
+        <div class="level-desc">-5% sur un événement privé</div>
+      </div>
+      <div class="level-pts">3 000 pts</div>
+    </div>
+  </div>
+
+  <!-- COMMENT GAGNER DES POINTS -->
+  <div class="earn-card">
+    <div class="earn-title">Comment gagner des points</div>
+    <div class="earn-row">
+      <div class="earn-left"><span class="earn-emoji">👀</span><span class="earn-action">Visiter un profil truck</span></div>
+      <span class="earn-pts">+5 pts</span>
+    </div>
+    <div class="earn-row">
+      <div class="earn-left"><span class="earn-emoji">⭐</span><span class="earn-action">Laisser un avis</span></div>
+      <span class="earn-pts">+30 pts</span>
+    </div>
+    <div class="earn-row">
+      <div class="earn-left"><span class="earn-emoji">📋</span><span class="earn-action">Demande d'événement</span></div>
+      <span class="earn-pts">+50 pts</span>
+    </div>
+    <div class="earn-row">
+      <div class="earn-left"><span class="earn-emoji">🎉</span><span class="earn-action">Événement payé</span></div>
+      <span class="earn-pts">+200 pts</span>
+    </div>
+    <div class="earn-row">
+      <div class="earn-left"><span class="earn-emoji">👥</span><span class="earn-action">Parrainer un ami</span></div>
+      <span class="earn-pts">+100 pts</span>
+    </div>
+  </div>
+
+  <!-- HISTORIQUE -->
+  <div class="history-card">
+    <div class="history-title">Historique des points</div>
+    <div id="history-list">
+      <div class="empty-history">Aucune activité pour l'instant.<br>Commencez à explorer des trucks !</div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  const SUPABASE_URL = 'https://ooshjxostygdljkfhhwb.supabase.co';
+  const SUPABASE_ANON_KEY = 'sb_publishable_K80E3dBUm7s5m9No3zLQZw_fknMCUfv';
+  const { createClient } = supabase;
+  const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  const LEVELS = [
+    { key: 'curieux',  label: '🥉 Curieux',  min: 0,    max: 500,  next: 'Régulier' },
+    { key: 'regulier', label: '🥈 Régulier', min: 500,  max: 1500, next: 'Addict' },
+    { key: 'addict',   label: '🥇 Addict',   min: 1500, max: 3000, next: 'VIP' },
+    { key: 'vip',      label: '💎 VIP',      min: 3000, max: 3000, next: null },
+  ];
+
+  const ACTION_LABELS = {
+    profile_view:  { emoji: '👀', label: 'Profil visité' },
+    review:        { emoji: '⭐', label: 'Avis laissé' },
+    event_request: { emoji: '📋', label: 'Demande événement' },
+    event_paid:    { emoji: '🎉', label: 'Événement payé' },
+    referral:      { emoji: '👥', label: 'Parrainage' },
+    vip_reward:    { emoji: '💎', label: 'Réduction VIP utilisée' },
+  };
+
+  async function loadLoyalty() {
+    const { data: { user } } = await sb.auth.getUser();
+    if (!user) { window.location.href = 'inscription.html'; return; }
+
+    // Profil
+    const { data: profile } = await sb.from('profiles').select('full_name').eq('id', user.id).single();
+
+    // Points fidélité
+    const { data: loyalty } = await sb.from('loyalty_points').select('*').eq('client_id', user.id).single();
+
+    const points = loyalty?.total_points || 0;
+    const level = loyalty?.level || 'curieux';
+
+    // Mettre à jour la carte
+    document.getElementById('card-points').textContent = points.toLocaleString('fr-FR');
+    document.getElementById('card-name').textContent = profile?.full_name || user.email;
+
+    const levelData = LEVELS.find(l => l.key === level);
+    const badge = document.getElementById('level-badge');
+    badge.textContent = levelData.label;
+    badge.className = 'card-level-badge badge-' + level;
+
+    const card = document.getElementById('loyalty-card');
+    card.className = 'loyalty-card ' + level;
+
+    // Barre de progression
+    updateProgress(points, level, levelData);
+
+    // Bannière VIP
+    if (level === 'vip') {
+      document.getElementById('vip-banner').classList.add('show');
+      document.getElementById('progress-section').style.display = 'none';
+    }
+
+    // Historique
+    const { data: transactions } = await sb
+      .from('loyalty_transactions')
+      .select('*')
+      .eq('client_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(10);
+
+    renderHistory(transactions || []);
+  }
+
+  function updateProgress(points, level, levelData) {
+    if (level === 'vip') return;
+
+    const min = levelData.min;
+    const max = levelData.max;
+    const pct = Math.min(((points - min) / (max - min)) * 100, 100);
+    const remaining = max - points;
+
+    document.getElementById('progress-fill').style.width = pct + '%';
+    document.getElementById('progress-label').textContent = 'Vers ' + levelData.next;
+    document.getElementById('progress-target').textContent = points.toLocaleString('fr-FR') + ' / ' + max.toLocaleString('fr-FR') + ' pts';
+    document.getElementById('progress-next').textContent = 'Encore ' + remaining.toLocaleString('fr-FR') + ' points pour atteindre le niveau ' + levelData.next;
+  }
+
+  function renderHistory(transactions) {
+    const list = document.getElementById('history-list');
+    if (!transactions.length) return;
+
+    list.innerHTML = transactions.map(t => {
+      const isPlus = t.points > 0;
+      const action = ACTION_LABELS[t.action] || { emoji: '•', label: t.action };
+      const date = new Date(t.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+      return `
+        <div class="history-row">
+          <div class="history-left">
+            <div class="history-dot ${isPlus ? 'plus' : 'minus'}"></div>
+            <div>
+              <div class="history-desc">${action.emoji} ${t.description || action.label}</div>
+              <div class="history-date">${date}</div>
+            </div>
+          </div>
+          <span class="history-pts ${isPlus ? 'plus' : 'minus'}">${isPlus ? '+' : ''}${t.points} pts</span>
+        </div>
+      `;
+    }).join('');
+  }
+
+  async function useVipReward() {
+    if (!confirm('Utiliser votre réduction VIP de 5% ? Votre compteur repartira à zéro.')) return;
+    alert('Votre réduction de 5% est activée sur votre prochain événement. Bon événement !');
+    // En production : appeler la fonction use_vip_reward() via Supabase RPC
+    // await sb.rpc('use_vip_reward', { p_client_id: user.id, ... })
+  }
+
+  // Fonction globale pour ajouter des points depuis n'importe quelle page
+  window.addPoints = async function(action, referenceId = null) {
+    const { data: { user } } = await sb.auth.getUser();
+    if (!user) return;
+    const pointsMap = { profile_view: 5, review: 30, event_request: 50, event_paid: 200, referral: 100 };
+    if (!pointsMap[action]) return;
+    await sb.rpc('add_loyalty_points', {
+      p_client_id: user.id,
+      p_points: pointsMap[action],
+      p_action: action,
+      p_reference_id: referenceId
+    });
+  };
+
+  loadLoyalty();
+</script>
+</body>
+</html>

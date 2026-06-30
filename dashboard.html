@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TruckDrop — Mon espace</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --orange: #F97316;
+      --orange-light: #FFF7ED;
+      --orange-dark: #EA6C0A;
+      --orange-border: #FDBA74;
+      --dark: #111827;
+      --gray-700: #374151;
+      --gray-500: #6B7280;
+      --gray-300: #D1D5DB;
+      --gray-100: #F9FAFB;
+      --white: #FFFFFF;
+      --green: #16A34A;
+      --green-light: #F0FDF4;
+      --red: #DC2626;
+      --red-light: #FEF2F2;
+      --purple: #7C3AED;
+      --purple-light: #F5F3FF;
+      --gold: #D97706;
+      --gold-light: #FFFBEB;
+      --radius: 10px;
+      --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04);
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--gray-100);
+      color: var(--dark);
+      min-height: 100vh;
+    }
+
+    /* NAV */
+    nav {
+      background: var(--white);
+      border-bottom: 1px solid var(--gray-300);
+      padding: 0 1.5rem;
+      height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .logo { display: flex; align-items: center; gap: 8px; font-size: 20px; font-weight: 700; text-decoration: none; color: var(--dark); }
+    .logo-icon { width: 34px; height: 34px; background: var(--orange); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 20px; }
+    .truck-badge { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--gray-500); }
+    .plan-tag { padding: 3px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; }
+    .plan-gratuit { background: var(--gray-100); color: var(--gray-500); }
+    .plan-starter { background: var(--orange-light); color: var(--orange); }
+    .plan-pro { background: var(--purple-light); color: var(--purple); }
+
+    /* LAYOUT */
+    .layout { display: grid; grid-template-columns: 220px 1fr; min-height: calc(100vh - 60px); }
+
+    /* SIDEBAR */
+    .sidebar { background: var(--white); border-right: 1px solid var(--gray-300); padding: 1.25rem 0.75rem; }
+    .nav-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 12px; border-radius: 8px;
+      font-size: 14px; color: var(--gray-700);
+      cursor: pointer; margin-bottom: 2px;
+      transition: all 0.12s;
+    }
+    .nav-item:hover { background: var(--gray-100); }
+    .nav-item.active { background: var(--orange-light); color: var(--orange); font-weight: 600; }
+    .nav-item .count { margin-left: auto; background: var(--red); color: white; font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 10px; }
+
+    /* CONTENT */
+    .content { padding: 1.75rem; max-width: 900px; }
+    .content-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 1.5rem; }
+    .content-title { font-size: 22px; font-weight: 700; }
+    .content-subtitle { font-size: 14px; color: var(--gray-500); margin-top: 3px; }
+
+    .panel { display: none; }
+    .panel.active { display: block; }
+
+    /* CARD */
+    .card { background: var(--white); border: 1px solid var(--gray-300); border-radius: 14px; padding: 1.5rem; margin-bottom: 1rem; }
+    .card-title { font-size: 15px; font-weight: 600; margin-bottom: 1rem; display: flex; align-items: center; gap: 8px; }
+
+    /* STATUS TOGGLE */
+    .status-card { display: flex; align-items: center; justify-content: space-between; }
+    .status-left { display: flex; align-items: center; gap: 14px; }
+    .status-dot { width: 14px; height: 14px; border-radius: 50%; background: var(--gray-300); }
+    .status-dot.open { background: var(--green); box-shadow: 0 0 0 4px var(--green-light); }
+    .status-text { font-size: 16px; font-weight: 600; }
+    .status-sub { font-size: 13px; color: var(--gray-500); }
+    .toggle-switch { position: relative; width: 52px; height: 28px; }
+    .toggle-switch input { opacity: 0; width: 0; height: 0; }
+    .toggle-slider { position: absolute; inset: 0; background: var(--gray-300); border-radius: 30px; cursor: pointer; transition: 0.2s; }
+    .toggle-slider::before { content: ''; position: absolute; width: 22px; height: 22px; left: 3px; top: 3px; background: white; border-radius: 50%; transition: 0.2s; }
+    input:checked + .toggle-slider { background: var(--green); }
+    input:checked + .toggle-slider::before { transform: translateX(24px); }
+
+    /* POSITION */
+    .btn-update-pos {
+      width: 100%; padding: 12px;
+      background: var(--orange); color: white;
+      border: none; border-radius: var(--radius);
+      font-size: 14px; font-weight: 600; cursor: pointer;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      font-family: inherit;
+    }
+    .btn-update-pos:hover { background: var(--orange-dark); }
+    .btn-update-pos:disabled { opacity: 0.6; cursor: not-allowed; }
+    .pos-display { font-size: 13px; color: var(--gray-500); margin-top: 10px; text-align: center; }
+    .pos-display.has-pos { color: var(--green); font-weight: 500; }
+
+    /* FORM */
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    .form-grid .full { grid-column: 1 / -1; }
+    .field { display: flex; flex-direction: column; gap: 5px; margin-bottom: 1rem; }
+    .field label { font-size: 13px; font-weight: 500; color: var(--gray-700); }
+    .field input, .field select, .field textarea {
+      padding: 10px 12px; border: 1.5px solid var(--gray-300); border-radius: var(--radius);
+      font-size: 14px; outline: none; font-family: inherit; width: 100%;
+    }
+    .field input:focus, .field select:focus, .field textarea:focus { border-color: var(--orange); }
+    .field textarea { resize: vertical; min-height: 80px; }
+    .btn-save { padding: 10px 20px; background: var(--dark); color: white; border: none; border-radius: var(--radius); font-size: 14px; font-weight: 600; cursor: pointer; font-family: inherit; }
+    .btn-save:hover { background: #000; }
+
+    /* LOCKED FEATURE */
+    .locked-card { position: relative; overflow: hidden; }
+    .locked-overlay {
+      position: absolute; inset: 0;
+      background: rgba(255,255,255,0.85);
+      backdrop-filter: blur(2px);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 10px; padding: 1.5rem; text-align: center;
+    }
+    .locked-icon { font-size: 28px; }
+    .locked-text { font-size: 13px; color: var(--gray-700); max-width: 240px; }
+    .btn-upgrade { padding: 8px 18px; background: var(--purple); color: white; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; }
+
+    /* STATS */
+    .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 1.25rem; }
+    .stat-box { background: var(--white); border: 1px solid var(--gray-300); border-radius: var(--radius); padding: 14px; }
+    .stat-label { font-size: 12px; color: var(--gray-500); margin-bottom: 4px; }
+    .stat-value { font-size: 24px; font-weight: 700; }
+    .stat-trend { font-size: 11px; color: var(--green); margin-top: 2px; }
+
+    /* EVENT REQUEST CARDS */
+    .event-card { border: 1.5px solid var(--gray-300); border-radius: var(--radius); padding: 1.1rem; margin-bottom: 10px; }
+    .event-card.new-event { border-color: var(--orange-border); background: var(--orange-light); }
+    .event-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
+    .event-date { font-size: 15px; font-weight: 600; }
+    .event-budget { font-size: 13px; color: var(--gray-500); }
+    .event-meta { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 10px; font-size: 13px; color: var(--gray-700); }
+    .event-meta span { display: flex; align-items: center; gap: 4px; }
+    .event-desc { font-size: 13px; color: var(--gray-500); margin-bottom: 12px; line-height: 1.5; }
+    .quote-form { display: flex; gap: 8px; }
+    .quote-form input { flex: 1; padding: 9px 12px; border: 1.5px solid var(--gray-300); border-radius: 8px; font-size: 14px; font-family: inherit; }
+    .btn-quote { padding: 9px 16px; background: var(--dark); color: white; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+    .btn-quote:hover { background: #000; }
+    .quote-sent { display: flex; align-items: center; gap: 8px; padding: 9px 12px; background: var(--green-light); color: var(--green); border-radius: 8px; font-size: 13px; font-weight: 500; }
+
+    .empty-state { text-align: center; padding: 2.5rem 1rem; color: var(--gray-500); }
+    .empty-state .big { font-size: 36px; margin-bottom: 10px; }
+
+    /* NOTIF FORM */
+    .notif-types { display: flex; gap: 8px; margin-bottom: 1rem; }
+    .notif-type-btn { flex: 1; padding: 10px; border: 1.5px solid var(--gray-300); border-radius: var(--radius); text-align: center; font-size: 13px; cursor: pointer; background: white; }
+    .notif-type-btn.selected { border-color: var(--purple); background: var(--purple-light); color: var(--purple); font-weight: 500; }
+
+    .loading { text-align: center; padding: 2rem; color: var(--gray-500); font-size: 14px; }
+
+    @media (max-width: 768px) {
+      .layout { grid-template-columns: 1fr; }
+      .sidebar { display: flex; overflow-x: auto; padding: 0.75rem; gap: 6px; }
+      .nav-item { flex-shrink: 0; margin-bottom: 0; }
+      .form-grid { grid-template-columns: 1fr; }
+      .stats-grid { grid-template-columns: 1fr; }
+      .content { padding: 1rem; }
+    }
+  </style>
+</head>
+<body>
+
+<nav>
+  <a class="logo" href="#">
+    <div class="logo-icon">🚚</div>
+    TruckDrop
+  </a>
+  <div class="truck-badge">
+    <span id="truck-name-display">Mon truck</span>
+    <span class="plan-tag" id="plan-tag">—</span>
+  </div>
+</nav>
+
+<div class="layout">
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="nav-item active" data-panel="position" onclick="switchPanel(this)">📍 Ma position</div>
+    <div class="nav-item" data-panel="events" onclick="switchPanel(this)">🎉 Événements <span class="count" id="events-count" style="display:none">0</span></div>
+    <div class="nav-item" data-panel="stats" onclick="switchPanel(this)">📊 Statistiques</div>
+    <div class="nav-item" data-panel="notif" onclick="switchPanel(this)">🔔 Notifications</div>
+    <div class="nav-item" data-panel="profile" onclick="switchPanel(this)">⚙️ Mon profil</div>
+  </div>
+
+  <!-- CONTENT -->
+  <div class="content">
+
+    <!-- PANEL POSITION -->
+    <div class="panel active" id="panel-position">
+      <div class="content-header">
+        <div>
+          <div class="content-title">Ma position</div>
+          <div class="content-subtitle">Mettez à jour votre position pour être visible sur la carte.</div>
+        </div>
+      </div>
+
+      <div class="card status-card">
+        <div class="status-left">
+          <div class="status-dot" id="status-dot"></div>
+          <div>
+            <div class="status-text" id="status-text">Fermé</div>
+            <div class="status-sub">Visible sur la carte si activé</div>
+          </div>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="status-toggle" onchange="toggleOpen(this.checked)">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+
+      <div class="card">
+        <div class="card-title">📍 Position actuelle</div>
+        <button class="btn-update-pos" id="btn-locate" onclick="updatePosition()">
+          📡 Actualiser ma position GPS
+        </button>
+        <div class="pos-display" id="pos-display">Aucune position enregistrée</div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">🕒 Horaires habituels</div>
+        <div class="form-grid">
+          <div class="field">
+            <label>Ouverture</label>
+            <input type="time" id="hour_open" value="11:00">
+          </div>
+          <div class="field">
+            <label>Fermeture</label>
+            <input type="time" id="hour_close" value="14:30">
+          </div>
+        </div>
+        <button class="btn-save" onclick="saveHours()">Enregistrer</button>
+      </div>
+    </div>
+
+    <!-- PANEL ÉVÉNEMENTS -->
+    <div class="panel" id="panel-events">
+      <div class="content-header">
+        <div>
+          <div class="content-title">Demandes d'événements</div>
+          <div class="content-subtitle">Répondez avec un devis pour décrocher des événements privés.</div>
+        </div>
+      </div>
+      <div id="events-list">
+        <div class="loading">Chargement…</div>
+      </div>
+    </div>
+
+    <!-- PANEL STATS -->
+    <div class="panel" id="panel-stats">
+      <div class="content-header">
+        <div>
+          <div class="content-title">Statistiques</div>
+          <div class="content-subtitle">Suivez la performance de votre profil.</div>
+        </div>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-box">
+          <div class="stat-label">Vues du profil</div>
+          <div class="stat-value" id="stat-views">—</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">Demandes reçues</div>
+          <div class="stat-value" id="stat-requests">—</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">Devis envoyés</div>
+          <div class="stat-value" id="stat-quotes">—</div>
+        </div>
+      </div>
+
+      <div class="card locked-card" id="stats-locked">
+        <div class="card-title">📈 Évolution des vues</div>
+        <div style="height:140px;background:var(--gray-100);border-radius:8px"></div>
+        <div class="locked-overlay">
+          <div class="locked-icon">🔒</div>
+          <div class="locked-text">Disponible avec le plan Starter (3 derniers jours) ou Pro (illimité)</div>
+          <button class="btn-upgrade" onclick="alert('Redirection vers la page upgrade')">Passer au plan supérieur</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- PANEL NOTIFICATIONS -->
+    <div class="panel" id="panel-notif">
+      <div class="content-header">
+        <div>
+          <div class="content-title">Notifications clients</div>
+          <div class="content-subtitle">Prévenez vos clients de votre présence ou d'une promo.</div>
+        </div>
+      </div>
+
+      <div class="card locked-card" id="notif-locked">
+        <div class="card-title">🔔 Envoyer une notification</div>
+        <div class="notif-types">
+          <div class="notif-type-btn selected">📍 Présence</div>
+          <div class="notif-type-btn">🏷️ Promo</div>
+        </div>
+        <div class="field">
+          <label>Message</label>
+          <textarea placeholder="Ex : On est sur la place du marché jusqu'à 14h !"></textarea>
+        </div>
+        <div class="field">
+          <label>Rayon de diffusion</label>
+          <input type="range" min="1" max="15" value="5">
+        </div>
+        <button class="btn-save">Envoyer la notification</button>
+        <div class="locked-overlay">
+          <div class="locked-icon">🔒</div>
+          <div class="locked-text">Fonctionnalité exclusive au plan Pro</div>
+          <button class="btn-upgrade" onclick="alert('Redirection vers la page upgrade')">Passer au plan Pro</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- PANEL PROFIL -->
+    <div class="panel" id="panel-profile">
+      <div class="content-header">
+        <div>
+          <div class="content-title">Mon profil</div>
+          <div class="content-subtitle">Ces informations sont visibles publiquement.</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="form-grid">
+          <div class="field full">
+            <label>Nom du truck</label>
+            <input type="text" id="profile_name">
+          </div>
+          <div class="field full">
+            <label>Description</label>
+            <textarea id="profile_description"></textarea>
+          </div>
+          <div class="field">
+            <label>Téléphone</label>
+            <input type="tel" id="profile_phone">
+          </div>
+          <div class="field">
+            <label>Instagram</label>
+            <input type="text" id="profile_instagram">
+          </div>
+          <div class="field full">
+            <label>Ville</label>
+            <input type="text" id="profile_city">
+          </div>
+        </div>
+        <button class="btn-save" onclick="saveProfile()">Enregistrer les modifications</button>
+      </div>
+
+      <div class="card">
+        <div class="card-title">💳 Mon abonnement</div>
+        <p style="font-size:14px;color:var(--gray-700);margin-bottom:10px">Plan actuel : <strong id="current-plan-text">—</strong></p>
+        <button class="btn-save" onclick="alert('Redirection vers la page de gestion d\'abonnement Stripe')">Gérer mon abonnement</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  const SUPABASE_URL = 'https://ooshjxostygdljkfhhwb.supabase.co';
+  const SUPABASE_ANON_KEY = 'sb_publishable_K80E3dBUm7s5m9No3zLQZw_fknMCUfv';
+  const { createClient } = supabase;
+  const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  let myTruck = null;
+  let currentPos = null;
+
+  // ============================================
+  // INIT
+  // ============================================
+  async function init() {
+    const { data: { user } } = await sb.auth.getUser();
+    if (!user) { window.location.href = 'inscription.html'; return; }
+
+    const { data: truck, error } = await sb.from('food_trucks').select('*').eq('owner_id', user.id).single();
+    if (error || !truck) { alert('Aucun food truck trouvé pour ce compte.'); return; }
+
+    myTruck = truck;
+    renderTruckInfo();
+    loadEvents();
+    loadStats();
+  }
+
+  function renderTruckInfo() {
+    document.getElementById('truck-name-display').textContent = myTruck.name;
+
+    const planTag = document.getElementById('plan-tag');
+    const planLabels = { gratuit: 'GRATUIT', starter: 'STARTER', pro: 'PRO' };
+    planTag.textContent = planLabels[myTruck.plan] || 'GRATUIT';
+    planTag.className = 'plan-tag plan-' + myTruck.plan;
+
+    document.getElementById('current-plan-text').textContent = planLabels[myTruck.plan] || 'GRATUIT';
+
+    // Status toggle
+    document.getElementById('status-toggle').checked = myTruck.is_open;
+    updateStatusDisplay(myTruck.is_open);
+
+    // Position
+    if (myTruck.location) {
+      document.getElementById('pos-display').textContent = '✓ Position enregistrée';
+      document.getElementById('pos-display').classList.add('has-pos');
+    }
+
+    // Profil form
+    document.getElementById('profile_name').value = myTruck.name || '';
+    document.getElementById('profile_description').value = myTruck.description || '';
+    document.getElementById('profile_phone').value = myTruck.phone || '';
+    document.getElementById('profile_instagram').value = myTruck.instagram || '';
+    document.getElementById('profile_city').value = myTruck.city || '';
+
+    // Verrouillage selon plan
+    if (myTruck.plan === 'pro') {
+      document.getElementById('notif-locked').classList.remove('locked-card');
+      document.querySelector('#notif-locked .locked-overlay')?.remove();
+    }
+    if (myTruck.plan === 'starter' || myTruck.plan === 'pro') {
+      document.getElementById('stats-locked').classList.remove('locked-card');
+      document.querySelector('#stats-locked .locked-overlay')?.remove();
+    }
+  }
+
+  // ============================================
+  // STATUT OUVERT/FERMÉ
+  // ============================================
+  function updateStatusDisplay(isOpen) {
+    document.getElementById('status-dot').classList.toggle('open', isOpen);
+    document.getElementById('status-text').textContent = isOpen ? 'Ouvert' : 'Fermé';
+  }
+
+  async function toggleOpen(checked) {
+    updateStatusDisplay(checked);
+    const { error } = await sb.from('food_trucks').update({ is_open: checked }).eq('id', myTruck.id);
+    if (error) console.error(error);
+    myTruck.is_open = checked;
+  }
+
+  // ============================================
+  // MISE À JOUR POSITION GPS
+  // ============================================
+  function updatePosition() {
+    const btn = document.getElementById('btn-locate');
+    btn.disabled = true;
+    btn.textContent = '📡 Localisation en cours…';
+
+    if (!navigator.geolocation) {
+      alert('Géolocalisation non disponible sur cet appareil.');
+      btn.disabled = false;
+      btn.textContent = '📡 Actualiser ma position GPS';
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      async pos => {
+        const { latitude, longitude } = pos.coords;
+        currentPos = { lat: latitude, lng: longitude };
+
+        const { error } = await sb.from('food_trucks').update({
+          location: `POINT(${longitude} ${latitude})`,
+          updated_at: new Date().toISOString()
+        }).eq('id', myTruck.id);
+
+        btn.disabled = false;
+        btn.textContent = '📡 Actualiser ma position GPS';
+
+        if (error) {
+          document.getElementById('pos-display').textContent = '⚠️ Erreur lors de la mise à jour';
+          console.error(error);
+        } else {
+          document.getElementById('pos-display').textContent = `✓ Position mise à jour (${latitude.toFixed(4)}, ${longitude.toFixed(4)})`;
+          document.getElementById('pos-display').classList.add('has-pos');
+        }
+      },
+      err => {
+        btn.disabled = false;
+        btn.textContent = '📡 Actualiser ma position GPS';
+        alert('Impossible de récupérer votre position. Vérifiez les autorisations de localisation.');
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  }
+
+  // ============================================
+  // HORAIRES
+  // ============================================
+  function saveHours() {
+    // Stocké côté front pour l'instant — extension possible en DB
+    alert('Horaires enregistrés !');
+  }
+
+  // ============================================
+  // ÉVÉNEMENTS — CHARGEMENT
+  // ============================================
+  async function loadEvents() {
+    const { data: requests, error } = await sb
+      .from('event_requests')
+      .select('*')
+      .eq('status', 'open')
+      .order('created_at', { ascending: false });
+
+    if (error) { console.error(error); return; }
+
+    // Charger mes devis déjà envoyés
+    const { data: myQuotes } = await sb
+      .from('event_quotes')
+      .select('request_id, amount, status')
+      .eq('truck_id', myTruck.id);
+
+    const quotedIds = {};
+    (myQuotes || []).forEach(q => quotedIds[q.request_id] = q);
+
+    renderEvents(requests || [], quotedIds);
+
+    const count = (requests || []).filter(r => !quotedIds[r.id]).length;
+    const countEl = document.getElementById('events-count');
+    if (count > 0) { countEl.style.display = 'inline-block'; countEl.textContent = count; }
+  }
+
+  function renderEvents(requests, quotedIds) {
+    const list = document.getElementById('events-list');
+    if (!requests.length) {
+      list.innerHTML = '<div class="empty-state"><div class="big">📭</div><p>Aucune demande d\'événement pour le moment.</p></div>';
+      return;
+    }
+
+    const cuisineLabels = { burger:'Burgers', tacos:'Tacos', asian:'Asiatique', pizza:'Pizza', vege:'Végé', sweet:'Sucré', bbq:'BBQ' };
+
+    list.innerHTML = requests.map(r => {
+      const date = new Date(r.event_date).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' });
+      const alreadyQuoted = quotedIds[r.id];
+      const cuisineLabel = r.cuisine_type ? cuisineLabels[r.cuisine_type] || r.cuisine_type : 'Tout type';
+
+      return `
+        <div class="event-card ${!alreadyQuoted ? 'new-event' : ''}">
+          <div class="event-top">
+            <div class="event-date">📅 ${date}</div>
+            <div class="event-budget">Budget ~${r.budget}€</div>
+          </div>
+          <div class="event-meta">
+            <span>📍 ${r.location_city}</span>
+            <span>👥 ${r.guests_count} invités</span>
+            <span>🍽️ ${cuisineLabel}</span>
+          </div>
+          ${r.description ? `<div class="event-desc">${r.description}</div>` : ''}
+          ${alreadyQuoted
+            ? `<div class="quote-sent">✓ Devis envoyé : ${alreadyQuoted.amount}€ — statut : ${alreadyQuoted.status === 'pending' ? 'en attente' : alreadyQuoted.status === 'accepted' ? 'accepté' : 'refusé'}</div>`
+            : `<div class="quote-form">
+                <input type="number" placeholder="Montant du devis (€)" id="quote-${r.id}">
+                <button class="btn-quote" onclick="sendQuote('${r.id}')">Envoyer le devis</button>
+              </div>`
+          }
+        </div>
+      `;
+    }).join('');
+  }
+
+  async function sendQuote(requestId) {
+    const input = document.getElementById('quote-' + requestId);
+    const amount = parseInt(input.value);
+    if (!amount || amount < 1) { alert('Indiquez un montant valide.'); return; }
+
+    const { error } = await sb.from('event_quotes').insert({
+      request_id: requestId,
+      truck_id: myTruck.id,
+      amount: amount,
+      status: 'pending'
+    });
+
+    if (error) { console.error(error); alert('Erreur lors de l\'envoi du devis.'); return; }
+
+    alert(`Devis de ${amount}€ envoyé ! Le client sera notifié.`);
+    loadEvents();
+  }
+
+  // ============================================
+  // STATS
+  // ============================================
+  async function loadStats() {
+    const { count: viewCount } = await sb.from('profile_views').select('*', { count: 'exact', head: true }).eq('truck_id', myTruck.id);
+    const { count: requestCount } = await sb.from('event_requests').select('*', { count: 'exact', head: true }).eq('status', 'open');
+    const { count: quoteCount } = await sb.from('event_quotes').select('*', { count: 'exact', head: true }).eq('truck_id', myTruck.id);
+
+    document.getElementById('stat-views').textContent = viewCount || 0;
+    document.getElementById('stat-requests').textContent = requestCount || 0;
+    document.getElementById('stat-quotes').textContent = quoteCount || 0;
+  }
+
+  // ============================================
+  // PROFIL
+  // ============================================
+  async function saveProfile() {
+    const { error } = await sb.from('food_trucks').update({
+      name: document.getElementById('profile_name').value.trim(),
+      description: document.getElementById('profile_description').value.trim(),
+      phone: document.getElementById('profile_phone').value.trim(),
+      instagram: document.getElementById('profile_instagram').value.trim(),
+      city: document.getElementById('profile_city').value.trim(),
+      updated_at: new Date().toISOString()
+    }).eq('id', myTruck.id);
+
+    if (error) { alert('Erreur lors de l\'enregistrement.'); console.error(error); return; }
+    alert('Profil mis à jour !');
+    document.getElementById('truck-name-display').textContent = document.getElementById('profile_name').value;
+  }
+
+  // ============================================
+  // NAVIGATION PANELS
+  // ============================================
+  function switchPanel(el) {
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    el.classList.add('active');
+    document.getElementById('panel-' + el.dataset.panel).classList.add('active');
+  }
+
+  init();
+</script>
+</body>
+</html>

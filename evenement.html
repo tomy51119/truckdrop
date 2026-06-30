@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TruckDrop — Réservez un food truck pour votre événement</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --orange: #F97316;
+      --orange-light: #FFF7ED;
+      --orange-dark: #EA6C0A;
+      --orange-border: #FDBA74;
+      --dark: #111827;
+      --gray-700: #374151;
+      --gray-500: #6B7280;
+      --gray-300: #D1D5DB;
+      --gray-100: #F9FAFB;
+      --white: #FFFFFF;
+      --green: #16A34A;
+      --green-light: #F0FDF4;
+      --red: #DC2626;
+      --red-light: #FEF2F2;
+      --purple: #7C3AED;
+      --purple-light: #F5F3FF;
+      --radius: 10px;
+      --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04);
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--gray-100);
+      color: var(--dark);
+      min-height: 100vh;
+      line-height: 1.6;
+    }
+
+    nav {
+      background: var(--white);
+      border-bottom: 1px solid var(--gray-300);
+      padding: 0 1.5rem;
+      height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .logo { display: flex; align-items: center; gap: 8px; font-size: 20px; font-weight: 700; text-decoration: none; color: var(--dark); }
+    .logo-icon { width: 34px; height: 34px; background: var(--orange); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 20px; }
+    .nav-link { font-size: 14px; color: var(--gray-500); text-decoration: none; }
+
+    .page { max-width: 680px; margin: 0 auto; padding: 2.5rem 1.5rem 4rem; }
+
+    .intro { text-align: center; margin-bottom: 2rem; }
+    .intro h1 { font-size: 28px; font-weight: 800; margin-bottom: 8px; }
+    .intro p { font-size: 15px; color: var(--gray-500); }
+
+    /* STEPS BAR */
+    .progress-steps { display: flex; align-items: center; margin-bottom: 2rem; }
+    .step-dot {
+      width: 30px; height: 30px; border-radius: 50%;
+      border: 2px solid var(--gray-300); background: var(--white);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 600; color: var(--gray-500);
+      flex-shrink: 0; transition: all 0.2s; position: relative; z-index: 1;
+    }
+    .step-dot.active { border-color: var(--orange); background: var(--orange); color: white; }
+    .step-dot.done { border-color: var(--green); background: var(--green); color: white; }
+    .step-line { flex: 1; height: 2px; background: var(--gray-300); }
+    .step-line.done { background: var(--green); }
+
+    .card {
+      background: var(--white);
+      border-radius: 14px;
+      padding: 2rem;
+      box-shadow: var(--shadow);
+      border: 1px solid var(--gray-300);
+    }
+    .card-title { font-size: 21px; font-weight: 700; margin-bottom: 4px; }
+    .card-subtitle { font-size: 14px; color: var(--gray-500); margin-bottom: 1.75rem; }
+
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    .form-grid .full { grid-column: 1 / -1; }
+    .field { display: flex; flex-direction: column; gap: 5px; }
+    .field label { font-size: 13px; font-weight: 500; color: var(--gray-700); }
+    .field input, .field select, .field textarea {
+      padding: 10px 12px; border: 1.5px solid var(--gray-300); border-radius: var(--radius);
+      font-size: 15px; outline: none; transition: border-color 0.15s; font-family: inherit; width: 100%;
+    }
+    .field input:focus, .field select:focus, .field textarea:focus {
+      border-color: var(--orange); box-shadow: 0 0 0 3px rgba(249,115,22,0.12);
+    }
+    .field textarea { resize: vertical; min-height: 90px; }
+    .field .hint { font-size: 12px; color: var(--gray-500); }
+
+    /* CUISINE GRID */
+    .cuisine-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+    .cuisine-btn {
+      border: 1.5px solid var(--gray-300); border-radius: var(--radius);
+      padding: 10px 6px; text-align: center; cursor: pointer;
+      transition: all 0.15s; font-size: 12px; color: var(--gray-700); background: var(--white);
+    }
+    .cuisine-btn .ce { font-size: 20px; display: block; margin-bottom: 4px; }
+    .cuisine-btn:hover { border-color: var(--orange-border); }
+    .cuisine-btn.selected { border-color: var(--orange); background: var(--orange-light); color: var(--orange); font-weight: 500; }
+
+    /* BUDGET SLIDER */
+    .budget-display { font-size: 28px; font-weight: 700; color: var(--orange); text-align: center; margin-bottom: 6px; }
+    .budget-slider { width: 100%; }
+    .budget-labels { display: flex; justify-content: space-between; font-size: 11px; color: var(--gray-500); margin-top: 4px; }
+
+    .btn-row { display: flex; gap: 10px; justify-content: space-between; margin-top: 1.75rem; }
+    .btn { padding: 12px 24px; border-radius: var(--radius); font-size: 15px; font-weight: 600; cursor: pointer; border: none; transition: all 0.15s; font-family: inherit; }
+    .btn-primary { background: var(--orange); color: white; flex: 1; }
+    .btn-primary:hover { background: var(--orange-dark); }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-secondary { background: var(--white); color: var(--gray-700); border: 1.5px solid var(--gray-300); min-width: 100px; }
+    .btn-secondary:hover { background: var(--gray-100); }
+
+    .alert { padding: 12px 16px; border-radius: var(--radius); font-size: 14px; margin-bottom: 1.25rem; display: none; }
+    .alert.error { background: var(--red-light); color: var(--red); border: 1px solid #FECACA; display: flex; align-items: center; gap: 8px; }
+
+    .step-panel { display: none; }
+    .step-panel.active { display: block; }
+
+    /* RECAP */
+    .summary-row { display: flex; justify-content: space-between; align-items: flex-start; padding: 10px 0; border-bottom: 1px solid var(--gray-100); font-size: 14px; gap: 12px; }
+    .summary-row:last-child { border-bottom: none; }
+    .summary-label { color: var(--gray-500); white-space: nowrap; }
+    .summary-val { font-weight: 500; color: var(--dark); text-align: right; }
+
+    /* INFO COMMISSION */
+    .info-box {
+      background: var(--purple-light);
+      border: 1px solid #DDD6FE;
+      border-radius: var(--radius);
+      padding: 14px 16px;
+      margin: 1.25rem 0;
+      font-size: 13px;
+      color: #5B21B6;
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+    }
+
+    /* SUCCESS */
+    .success-screen { text-align: center; padding: 2rem 0; display: none; }
+    .success-icon { width: 72px; height: 72px; background: var(--green-light); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 36px; margin: 0 auto 1.25rem; }
+    .success-screen h2 { font-size: 24px; font-weight: 700; margin-bottom: 8px; }
+    .success-screen p { color: var(--gray-500); font-size: 15px; max-width: 400px; margin: 0 auto 1.5rem; }
+    .success-steps { text-align: left; max-width: 380px; margin: 0 auto 1.5rem; }
+    .success-step { display: flex; gap: 10px; padding: 8px 0; font-size: 14px; color: var(--gray-700); }
+    .success-step .num { width: 22px; height: 22px; background: var(--orange-light); color: var(--orange); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; flex-shrink: 0; }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner { width: 18px; height: 18px; border: 2px solid rgba(255,255,255,0.4); border-top-color: white; border-radius: 50%; animation: spin 0.6s linear infinite; display: inline-block; }
+
+    @media (max-width: 560px) {
+      .form-grid { grid-template-columns: 1fr; }
+      .cuisine-grid { grid-template-columns: repeat(3, 1fr); }
+      .card { padding: 1.25rem; }
+      .page { padding: 1.5rem 1rem 3rem; }
+    }
+  </style>
+</head>
+<body>
+
+<nav>
+  <a class="logo" href="index.html">
+    <div class="logo-icon">🚚</div>
+    TruckDrop
+  </a>
+  <a class="nav-link" href="index.html">← Retour à la carte</a>
+</nav>
+
+<div class="page">
+  <div class="intro">
+    <h1>🎉 Un food truck pour votre événement</h1>
+    <p>Décrivez votre événement, recevez des devis de food trucks disponibles.</p>
+  </div>
+
+  <div class="progress-steps">
+    <div class="step-dot active" id="dot-1">1</div>
+    <div class="step-line" id="line-1"></div>
+    <div class="step-dot" id="dot-2">2</div>
+    <div class="step-line" id="line-2"></div>
+    <div class="step-dot" id="dot-3">3</div>
+  </div>
+
+  <div class="card">
+
+    <!-- ÉTAPE 1 : ÉVÉNEMENT -->
+    <div class="step-panel active" id="step-1">
+      <div class="card-title">Votre événement</div>
+      <div class="card-subtitle">Toutes les infos pour que les trucks puissent vous chiffrer.</div>
+
+      <div id="alert-1" class="alert"></div>
+
+      <div class="form-grid">
+        <div class="field">
+          <label for="event_date">Date de l'événement</label>
+          <input type="date" id="event_date">
+        </div>
+        <div class="field">
+          <label for="event_time">Heure souhaitée</label>
+          <input type="time" id="event_time" value="12:00">
+        </div>
+        <div class="field full">
+          <label for="location_address">Adresse de l'événement</label>
+          <input type="text" id="location_address" placeholder="12 rue de la Paix">
+        </div>
+        <div class="field">
+          <label for="location_city">Ville</label>
+          <input type="text" id="location_city" placeholder="Lyon">
+        </div>
+        <div class="field">
+          <label for="guests_count">Nombre d'invités</label>
+          <input type="number" id="guests_count" placeholder="50" min="1">
+        </div>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="goStep2()">Continuer →</button>
+      </div>
+    </div>
+
+    <!-- ÉTAPE 2 : PRÉFÉRENCES -->
+    <div class="step-panel" id="step-2">
+      <div class="card-title">Vos préférences</div>
+      <div class="card-subtitle">Aidez les trucks à comprendre votre besoin.</div>
+
+      <div id="alert-2" class="alert"></div>
+
+      <div class="form-grid">
+        <div class="field full">
+          <label>Type de cuisine souhaité</label>
+          <div class="cuisine-grid" id="cuisine-grid">
+            <div class="cuisine-btn" data-val="burger" onclick="selectCuisine(this)"><span class="ce">🍔</span>Burgers</div>
+            <div class="cuisine-btn" data-val="tacos" onclick="selectCuisine(this)"><span class="ce">🌮</span>Tacos</div>
+            <div class="cuisine-btn" data-val="asian" onclick="selectCuisine(this)"><span class="ce">🍜</span>Asiatique</div>
+            <div class="cuisine-btn" data-val="pizza" onclick="selectCuisine(this)"><span class="ce">🍕</span>Pizza</div>
+            <div class="cuisine-btn" data-val="vege" onclick="selectCuisine(this)"><span class="ce">🌱</span>Végé</div>
+            <div class="cuisine-btn" data-val="sweet" onclick="selectCuisine(this)"><span class="ce">🧇</span>Sucré</div>
+            <div class="cuisine-btn" data-val="bbq" onclick="selectCuisine(this)"><span class="ce">🔥</span>BBQ</div>
+            <div class="cuisine-btn selected" data-val="all" onclick="selectCuisine(this)"><span class="ce">🤷</span>Peu importe</div>
+          </div>
+        </div>
+
+        <div class="field full">
+          <label for="budget">Budget approximatif</label>
+          <div class="budget-display" id="budget-display">800€</div>
+          <input type="range" class="budget-slider" id="budget" min="200" max="3000" step="50" value="800" oninput="updateBudget(this.value)">
+          <div class="budget-labels"><span>200€</span><span>3000€+</span></div>
+        </div>
+
+        <div class="field full">
+          <label for="description">Décrivez votre événement <span style="color:var(--gray-500);font-weight:400">(optionnel)</span></label>
+          <textarea id="description" placeholder="Mariage en extérieur, anniversaire d'entreprise, soirée privée…"></textarea>
+        </div>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn btn-secondary" onclick="goStep(1)">← Retour</button>
+        <button class="btn btn-primary" onclick="goStep3()">Voir le récapitulatif →</button>
+      </div>
+    </div>
+
+    <!-- ÉTAPE 3 : RÉCAP + CONTACT -->
+    <div class="step-panel" id="step-3">
+      <div class="card-title">Récapitulatif</div>
+      <div class="card-subtitle">Vérifiez votre demande avant envoi.</div>
+
+      <div id="alert-3" class="alert"></div>
+
+      <div id="summary-content">
+        <div class="summary-row"><span class="summary-label">Date</span><span class="summary-val" id="sum-date">—</span></div>
+        <div class="summary-row"><span class="summary-label">Lieu</span><span class="summary-val" id="sum-location">—</span></div>
+        <div class="summary-row"><span class="summary-label">Invités</span><span class="summary-val" id="sum-guests">—</span></div>
+        <div class="summary-row"><span class="summary-label">Cuisine</span><span class="summary-val" id="sum-cuisine">—</span></div>
+        <div class="summary-row"><span class="summary-label">Budget</span><span class="summary-val" id="sum-budget">—</span></div>
+      </div>
+
+      <div class="form-grid" style="margin-top:1.25rem">
+        <div class="field full">
+          <label for="contact_email">Votre email</label>
+          <input type="email" id="contact_email" placeholder="vous@email.fr">
+        </div>
+        <div class="field full">
+          <label for="contact_phone">Votre téléphone</label>
+          <input type="tel" id="contact_phone" placeholder="06 12 34 56 78">
+        </div>
+      </div>
+
+      <div class="info-box">
+        💡 Votre demande sera envoyée à tous les trucks disponibles correspondant à vos critères. Vous recevrez plusieurs devis et choisirez celui qui vous convient. Le paiement se fait en toute sécurité via la plateforme.
+      </div>
+
+      <div class="btn-row">
+        <button class="btn btn-secondary" onclick="goStep(2)">← Retour</button>
+        <button class="btn btn-primary" id="btn-submit" onclick="submitRequest()">Envoyer ma demande 🚀</button>
+      </div>
+    </div>
+
+    <!-- SUCCÈS -->
+    <div class="success-screen" id="success-screen">
+      <div class="success-icon">✅</div>
+      <h2>Demande envoyée !</h2>
+      <p>Les food trucks correspondant à vos critères vont recevoir votre demande.</p>
+      <div class="success-steps">
+        <div class="success-step"><span class="num">1</span> Les trucks disponibles vous envoient un devis sous 48h</div>
+        <div class="success-step"><span class="num">2</span> Vous comparez et choisissez votre favori</div>
+        <div class="success-step"><span class="num">3</span> Vous payez en ligne, le truck est confirmé</div>
+      </div>
+      <button class="btn btn-primary" style="max-width:240px;margin:0 auto" onclick="window.location.href='index.html'">
+        Retour à l'accueil →
+      </button>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  const SUPABASE_URL = 'https://ooshjxostygdljkfhhwb.supabase.co';
+  const SUPABASE_ANON_KEY = 'sb_publishable_K80E3dBUm7s5m9No3zLQZw_fknMCUfv';
+  const { createClient } = supabase;
+  const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  const state = { step: 1, cuisine: 'all', budget: 800 };
+
+  // Date minimum = demain
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  document.getElementById('event_date').min = tomorrow.toISOString().split('T')[0];
+
+  function goStep(n) {
+    document.getElementById('step-' + state.step).classList.remove('active');
+    state.step = n;
+    document.getElementById('step-' + n).classList.add('active');
+    updateProgress();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function updateProgress() {
+    for (let i = 1; i <= 3; i++) {
+      const dot = document.getElementById('dot-' + i);
+      dot.className = 'step-dot';
+      if (i < state.step) { dot.classList.add('done'); dot.textContent = '✓'; }
+      else if (i === state.step) { dot.classList.add('active'); dot.textContent = i; }
+      else { dot.textContent = i; }
+      if (i < 3) document.getElementById('line-' + i).className = 'step-line' + (i < state.step ? ' done' : '');
+    }
+  }
+
+  function goStep2() {
+    const date = document.getElementById('event_date').value;
+    const address = document.getElementById('location_address').value.trim();
+    const city = document.getElementById('location_city').value.trim();
+    const guests = document.getElementById('guests_count').value;
+
+    clearAlert('alert-1');
+    if (!date) { showAlert('alert-1', 'Choisissez une date.'); return; }
+    if (!address || !city) { showAlert('alert-1', 'Indiquez le lieu de l\'événement.'); return; }
+    if (!guests || guests < 1) { showAlert('alert-1', 'Indiquez le nombre d\'invités.'); return; }
+    goStep(2);
+  }
+
+  function goStep3() {
+    const cuisineLabels = { burger:'Burgers', tacos:'Tacos', asian:'Asiatique', pizza:'Pizza', vege:'Végé', sweet:'Sucré', bbq:'BBQ', all:'Peu importe' };
+    const date = new Date(document.getElementById('event_date').value);
+    const dateStr = date.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+
+    document.getElementById('sum-date').textContent = dateStr + ' à ' + document.getElementById('event_time').value;
+    document.getElementById('sum-location').textContent = document.getElementById('location_address').value + ', ' + document.getElementById('location_city').value;
+    document.getElementById('sum-guests').textContent = document.getElementById('guests_count').value + ' personnes';
+    document.getElementById('sum-cuisine').textContent = cuisineLabels[state.cuisine];
+    document.getElementById('sum-budget').textContent = state.budget + '€';
+    goStep(3);
+  }
+
+  function selectCuisine(el) {
+    document.querySelectorAll('.cuisine-btn').forEach(b => b.classList.remove('selected'));
+    el.classList.add('selected');
+    state.cuisine = el.dataset.val;
+  }
+
+  function updateBudget(val) {
+    state.budget = parseInt(val);
+    document.getElementById('budget-display').textContent = state.budget + (state.budget >= 3000 ? '+€' : '€');
+  }
+
+  async function submitRequest() {
+    const btn = document.getElementById('btn-submit');
+    const email = document.getElementById('contact_email').value.trim();
+    const phone = document.getElementById('contact_phone').value.trim();
+
+    clearAlert('alert-3');
+    if (!email || !email.includes('@')) { showAlert('alert-3', 'Indiquez un email valide.'); return; }
+    if (!phone) { showAlert('alert-3', 'Indiquez votre numéro de téléphone.'); return; }
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Envoi en cours…';
+
+    try {
+      const { data: { user } } = await sb.auth.getUser();
+
+      let clientId = user?.id;
+
+      // Si pas connecté, on crée un compte invité simplifié (option : rediriger vers inscription)
+      if (!clientId) {
+        showAlert('alert-3', 'Connectez-vous ou créez un compte pour envoyer votre demande.');
+        btn.disabled = false;
+        btn.innerHTML = 'Envoyer ma demande 🚀';
+        return;
+      }
+
+      const { error } = await sb.from('event_requests').insert({
+        client_id: clientId,
+        event_date: document.getElementById('event_date').value,
+        event_time: document.getElementById('event_time').value,
+        location_address: document.getElementById('location_address').value.trim(),
+        location_city: document.getElementById('location_city').value.trim(),
+        guests_count: parseInt(document.getElementById('guests_count').value),
+        cuisine_type: state.cuisine === 'all' ? null : state.cuisine,
+        budget: state.budget,
+        description: document.getElementById('description').value.trim(),
+        status: 'open'
+      });
+
+      if (error) throw error;
+
+      // Points fidélité
+      await sb.rpc('add_loyalty_points', {
+        p_client_id: clientId,
+        p_points: 50,
+        p_action: 'event_request',
+        p_description: 'Demande événement envoyée'
+      });
+
+      document.getElementById('step-3').classList.remove('active');
+      document.getElementById('success-screen').style.display = 'block';
+
+    } catch (err) {
+      console.error(err);
+      showAlert('alert-3', 'Une erreur est survenue. Réessayez.');
+      btn.disabled = false;
+      btn.innerHTML = 'Envoyer ma demande 🚀';
+    }
+  }
+
+  function showAlert(id, msg) {
+    const el = document.getElementById(id);
+    el.className = 'alert error';
+    el.innerHTML = '⚠️ ' + msg;
+  }
+  function clearAlert(id) {
+    document.getElementById(id).className = 'alert';
+  }
+</script>
+</body>
+</html>
