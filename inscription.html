@@ -771,7 +771,15 @@
   }
 
   // ============================================
-  // SOUMISSION FINALE → Supabase
+  // PRICE IDs STRIPE
+  // ============================================
+  const STRIPE_PRICE_IDS = {
+    starter: 'price_1To0Fi9ZBfE75LzJUK8AFyTU',
+    pro: 'price_1To0G69ZBfE75LzJTKNj3bog'
+  };
+
+  // ============================================
+  // SOUMISSION FINALE → Supabase + Stripe
   // ============================================
   async function submitForm() {
     const btn = document.getElementById('btn-submit');
@@ -799,8 +807,8 @@
         role: 'owner'
       }).eq('id', authData.user.id);
 
-      // 3. Créer le food truck
-      const { error: truckError } = await sb.from('food_trucks').insert({
+      // 3. Créer le food truck (toujours en plan gratuit au départ, mis à jour après paiement si besoin)
+      const { data: truckData, error: truckError } = await sb.from('food_trucks').insert({
         owner_id: authData.user.id,
         name: document.getElementById('truck_name').value.trim(),
         cuisine_type: state.cuisine,
@@ -808,12 +816,36 @@
         phone: document.getElementById('truck_phone').value.trim(),
         instagram: document.getElementById('instagram').value.trim().replace('@', ''),
         city: document.getElementById('city').value.trim(),
-        plan: state.plan
-      });
+        plan: 'gratuit'
+      }).select().single();
 
       if (truckError) throw truckError;
 
-      // Succès !
+      // 4. Si plan payant choisi → redirection vers Stripe Checkout
+      if (state.plan === 'starter' || state.plan === 'pro') {
+        btn.innerHTML = '<span class="spinner"></span> Redirection vers le paiement…';
+
+        const checkoutRes = await fetch('/api/create-checkout', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            priceId: STRIPE_PRICE_IDS[state.plan],
+            truckId: truckData.id,
+            email: email,
+            plan: state.plan
+          })
+        });
+
+        const checkoutData = await checkoutRes.json();
+
+        if (checkoutData.error) throw new Error(checkoutData.error);
+
+        // Redirection vers la page de paiement Stripe
+        window.location.href = checkoutData.url;
+        return;
+      }
+
+      // Plan gratuit → succès immédiat, pas de paiement
       document.getElementById('step-4').classList.remove('active');
       document.getElementById('success-screen').style.display = 'block';
 
