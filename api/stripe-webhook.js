@@ -44,9 +44,16 @@ export default async function handler(req, res) {
       const session = event.data.object;
       const truckId = session.metadata?.truck_id;
       const plan = session.metadata?.plan;
+      const adId = session.metadata?.ad_id;
 
+      // Cas 1 : paiement d'un abonnement food truck
       if (truckId && plan) {
         await updateTruckPlan(SUPABASE_URL, SUPABASE_SERVICE_KEY, truckId, plan, session.subscription, session.customer);
+      }
+
+      // Cas 2 : paiement d'une annonce publicitaire
+      if (adId) {
+        await updateAdStatus(SUPABASE_URL, SUPABASE_SERVICE_KEY, adId, 'active', session.subscription, session.customer);
       }
     }
 
@@ -56,9 +63,14 @@ export default async function handler(req, res) {
     if (event.type === 'customer.subscription.deleted' || event.type === 'invoice.payment_failed') {
       const subscription = event.data.object;
       const truckId = subscription.metadata?.truck_id;
+      const adId = subscription.metadata?.ad_id;
 
       if (truckId) {
         await updateTruckPlan(SUPABASE_URL, SUPABASE_SERVICE_KEY, truckId, 'gratuit', null, null);
+      }
+
+      if (adId) {
+        await updateAdStatus(SUPABASE_URL, SUPABASE_SERVICE_KEY, adId, 'cancelled', null, null);
       }
     }
 
@@ -106,6 +118,26 @@ async function updateTruckPlan(supabaseUrl, serviceKey, truckId, plan, subscript
       })
     });
   }
+}
+
+// ============================================
+// Mise à jour du statut d'une annonce dans Supabase
+// ============================================
+async function updateAdStatus(supabaseUrl, serviceKey, adId, status, subscriptionId, customerId) {
+  const updateData = { status, updated_at: new Date().toISOString() };
+  if (subscriptionId) updateData.stripe_subscription_id = subscriptionId;
+  if (customerId) updateData.stripe_customer_id = customerId;
+
+  await fetch(`${supabaseUrl}/rest/v1/ads?id=eq.${adId}`, {
+    method: 'PATCH',
+    headers: {
+      'apikey': serviceKey,
+      'Authorization': `Bearer ${serviceKey}`,
+      'Content-Type': 'application/json',
+      'Prefer': 'return=minimal'
+    },
+    body: JSON.stringify(updateData)
+  });
 }
 
 // ============================================
