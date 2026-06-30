@@ -218,6 +218,28 @@
     .truck-cuisine { font-size: 12px; color: var(--gray-500); margin-bottom: 6px; }
     .truck-meta { display: flex; gap: 8px; flex-wrap: wrap; }
     .meta-item { font-size: 11px; color: var(--gray-500); display: flex; align-items: center; gap: 3px; }
+
+    /* AD CARD (sponsorisé) */
+    .ad-card {
+      border: 1.5px solid #DDD6FE;
+      background: linear-gradient(135deg, #FAF5FF, #F5F3FF);
+      border-radius: var(--radius);
+      padding: 12px;
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .ad-card:hover { border-color: #A78BFA; }
+    .ad-icon { font-size: 24px; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; background: #EDE9FE; border-radius: 10px; flex-shrink: 0; }
+    .ad-info { flex: 1; min-width: 0; }
+    .ad-top { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-bottom: 3px; }
+    .ad-name { font-size: 14px; font-weight: 600; color: var(--dark); }
+    .ad-sponsored-badge { font-size: 9px; font-weight: 700; color: #7C3AED; background: #EDE9FE; padding: 2px 6px; border-radius: 4px; letter-spacing: 0.04em; text-transform: uppercase; }
+    .ad-desc { font-size: 12px; color: var(--gray-700); margin-bottom: 4px; line-height: 1.4; }
+    .ad-cta { font-size: 12px; color: #7C3AED; font-weight: 600; }
+
     .badge { padding: 2px 7px; border-radius: 4px; font-size: 10px; font-weight: 600; white-space: nowrap; }
     .badge-open { background: var(--green-light); color: var(--green); }
     .badge-closed { background: var(--gray-100); color: var(--gray-500); }
@@ -328,6 +350,18 @@
       height: 36px !important;
     }
     .custom-marker.closed { opacity: 0.5; }
+    .ad-marker {
+      background: linear-gradient(135deg, #A78BFA, #7C3AED);
+      border: 2px solid white;
+      border-radius: 8px;
+      width: 30px !important;
+      height: 30px !important;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      box-shadow: 0 2px 8px rgba(124,58,237,0.4);
+    }
     .user-marker {
       background: #3B82F6;
       border: 3px solid white;
@@ -438,8 +472,14 @@
     vege:'🌱', sweet:'🧇', bbq:'🔥', other:'🍽️'
   };
 
+  const BUSINESS_EMOJI = {
+    bar:'🍺', restaurant:'🍽️', sport:'💪', shop:'🛍️', service:'🔧', other:'📣'
+  };
+
   let map, userMarker, radiusCircle;
   let allTrucks = [];
+  let allAds = [];
+  let adMarkers = {};
   let markers = {};
   let activeFilter = 'all';
   let showOpenOnly = false;
@@ -544,12 +584,35 @@
       // Ajouter points fidélité si connecté
       trackProfileViews();
 
+      // Charger les annonces publicitaires (générales + locales selon position)
+      await loadAds();
+
       renderList();
       renderMarkers();
 
     } catch (err) {
       console.error(err);
       document.getElementById('truck-list').innerHTML = '<div class="empty-state"><div class="big">⚠️</div><p>Erreur de chargement.<br>Vérifiez votre connexion.</p></div>';
+    }
+  }
+
+  // ============================================
+  // CHARGEMENT DES ANNONCES PUBLICITAIRES
+  // ============================================
+  async function loadAds() {
+    try {
+      if (userLat && userLng) {
+        const { data, error } = await sb.rpc('ads_nearby', { lat: userLat, lng: userLng });
+        if (error) throw error;
+        allAds = data || [];
+      } else {
+        const { data, error } = await sb.from('ads').select('*').eq('status', 'active').eq('ad_type', 'general');
+        if (error) throw error;
+        allAds = data || [];
+      }
+    } catch (err) {
+      console.error('Erreur chargement pubs:', err);
+      allAds = [];
     }
   }
 
@@ -598,12 +661,16 @@
     const list = document.getElementById('truck-list');
     document.getElementById('list-count').textContent = `${trucks.length} food truck${trucks.length > 1 ? 's' : ''} trouvé${trucks.length > 1 ? 's' : ''}`;
 
+    // Encart pub sponsorisé en haut de liste (une seule, prioritairement locale puis générale)
+    const featuredAd = allAds.find(a => a.ad_type === 'local') || allAds.find(a => a.ad_type === 'general');
+    const adHtml = featuredAd ? renderAdCard(featuredAd) : '';
+
     if (!trucks.length) {
-      list.innerHTML = '<div class="empty-state"><div class="big">🔍</div><p>Aucun truck dans cette zone.<br>Élargissez le rayon ou changez de filtre.</p></div>';
+      list.innerHTML = adHtml + '<div class="empty-state"><div class="big">🔍</div><p>Aucun truck dans cette zone.<br>Élargissez le rayon ou changez de filtre.</p></div>';
       return;
     }
 
-    list.innerHTML = trucks.map(t => {
+    const trucksHtml = trucks.map(t => {
       const emoji = CUISINE_EMOJI[t.cuisine_type] || '🍽️';
       const isPro = t.plan === 'pro';
       const stars = t.average_rating ? '★'.repeat(Math.round(t.average_rating)) : '';
@@ -626,6 +693,34 @@
         </div>
       `;
     }).join('');
+
+    list.innerHTML = adHtml + trucksHtml;
+  }
+
+  // ============================================
+  // CARTE PUBLICITAIRE (sponsorisée)
+  // ============================================
+  function renderAdCard(ad) {
+    const emoji = BUSINESS_EMOJI[ad.business_type] || '📣';
+    return `
+      <div class="ad-card" onclick="handleAdClick('${ad.id}', '${ad.cta_link || ''}')">
+        <div class="ad-icon">${emoji}</div>
+        <div class="ad-info">
+          <div class="ad-top">
+            <span class="ad-name">${ad.business_name}</span>
+            <span class="ad-sponsored-badge">Sponsorisé</span>
+          </div>
+          <div class="ad-desc">${ad.description || ''}</div>
+          <div class="ad-cta">${ad.cta_text || 'En savoir plus'} →</div>
+        </div>
+      </div>
+    `;
+  }
+
+  async function handleAdClick(adId, link) {
+    // Enregistrer le clic
+    try { await sb.from('ad_clicks').insert({ ad_id: adId }); } catch (e) {}
+    if (link) window.open(link, '_blank');
   }
 
   // ============================================
@@ -634,6 +729,8 @@
   function renderMarkers() {
     Object.values(markers).forEach(m => m.remove());
     markers = {};
+    Object.values(adMarkers).forEach(m => m.remove());
+    adMarkers = {};
 
     const trucks = getFiltered();
     trucks.forEach(t => {
@@ -653,6 +750,25 @@
       const marker = L.marker([lat, lng], { icon }).addTo(map);
       marker.on('click', () => selectTruck(t.id));
       markers[t.id] = marker;
+    });
+
+    // Marqueurs pour les annonces locales géolocalisées
+    allAds.filter(a => a.ad_type === 'local' && a.location).forEach(ad => {
+      const lat = getLat(ad.location);
+      const lng = getLng(ad.location);
+      if (!lat && !lng) return;
+
+      const emoji = BUSINESS_EMOJI[ad.business_type] || '📣';
+      const icon = L.divIcon({
+        className: 'ad-marker',
+        html: emoji,
+        iconSize: [30, 30],
+        iconAnchor: [15, 15]
+      });
+
+      const marker = L.marker([lat, lng], { icon }).addTo(map);
+      marker.on('click', () => handleAdClick(ad.id, ad.cta_link));
+      adMarkers[ad.id] = marker;
     });
   }
 
